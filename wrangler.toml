@@ -12,6 +12,6 @@ run_worker_first = ["/api/*"]
 # After creating your free D1 database ("t-fitness-db") in Cloudflare Dashboard,
 # uncomment the 4 lines below and paste your database_id (from D1 -> t-fitness-db):
 # [[d1_databases]]
-# binding = "DB"
-# database_name = "t-fitness-db"
-# database_id = "PASTE_YOUR_D1_DATABASE_ID_HERE"
+binding = "DB"
+database_name = "t-fit"
+database_id = "9eae5825-990f-449a-9056-66886151c2ca"
