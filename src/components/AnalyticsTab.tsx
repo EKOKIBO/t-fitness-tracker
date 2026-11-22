@@ -1,13 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import {
-  Camera,
-  Image as ImageIcon,
-  Plus,
-  Ruler,
-  TrendingUp,
-  X,
-} from 'lucide-react';
+import { Camera, Image as ImageIcon, Plus, X } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { db, generateId } from '../db/database';
 import {
@@ -67,7 +60,6 @@ export function AnalyticsTab() {
   const [selectedLiftId, setSelectedLiftId] = useState<string>('');
   const [pngModalOpen, setPngModalOpen] = useState(false);
 
-  // Body Measurements & Photo Overlay State
   const [measModalOpen, setMeasModalOpen] = useState(false);
   const [compareSlider, setCompareSlider] = useState(50);
   const [mDate, setMDate] = useState(() => new Date().toISOString().slice(0, 10));
@@ -124,7 +116,6 @@ export function AnalyticsTab() {
     [heatmapWorkouts, exerciseMap]
   );
 
-  // Logged exercises for e1RM trend selector
   const loggedExercises = useMemo(() => {
     const counts = new Map<string, number>();
     for (const w of workouts) {
@@ -143,7 +134,7 @@ export function AnalyticsTab() {
 
   const liftTrendPoints = useMemo(() => {
     if (!currentLiftId) return [];
-    const pts: Array<{ dateMs: number; e1rmKg: number; bestSetLabel: string }> = [];
+    const pts: Array<{ dateMs: number; e1rmKg: number }> = [];
     const sorted = [...workouts].sort(
       (a, b) => (a.finishedAt ?? a.startedAt) - (b.finishedAt ?? b.startedAt)
     );
@@ -151,21 +142,15 @@ export function AnalyticsTab() {
       const we = w.exercises.find((e) => e.exerciseId === currentLiftId);
       if (!we) continue;
       let best = 0;
-      let label = '';
       for (const s of we.sets) {
         if (!s.completed || s.type === 'W' || !s.weightKg || !s.reps) continue;
         const e1 = calculateHybridE1RM(s.weightKg, s.reps);
-        if (e1 > best) {
-          best = e1;
-          label = `${formatWeight(s.weightKg, activeClient?.unit ?? 'kg')}×${s.reps}`;
-        }
+        if (e1 > best) best = e1;
       }
-      if (best > 0) {
-        pts.push({ dateMs: w.finishedAt ?? w.startedAt, e1rmKg: best, bestSetLabel: label });
-      }
+      if (best > 0) pts.push({ dateMs: w.finishedAt ?? w.startedAt, e1rmKg: best });
     }
     return pts;
-  }, [workouts, currentLiftId, activeClient?.unit]);
+  }, [workouts, currentLiftId]);
 
   const photoMeasurements = useMemo(
     () => measurements.filter((m) => Boolean(m.photoDataUrl)),
@@ -197,21 +182,19 @@ export function AnalyticsTab() {
       deletedAt: null,
     };
     await db.measurements.put(rec);
-    // Sync latest client bodyweight for accurate DOTS normalization
     if (bw && bw >= 30) {
       await db.clients.put({ ...activeClient, bodyweightKg: bw, updatedAt: Date.now() });
     }
     setMeasModalOpen(false);
     setMPhoto(null);
-    pushToast('Saved body measurements!', 'positive');
+    pushToast('Saved measurements.');
   };
 
   if (!activeClient || !strength) return null;
 
-  // Radar Geometry
   const rCenterX = 140;
   const rCenterY = 120;
-  const rRadius = 78;
+  const rRadius = 76;
   const radarPolyPoints = RADAR_AXES.map((cat, i) => {
     const ang = -Math.PI / 2 + (i * 2 * Math.PI) / 5;
     const ratio = Math.max(0.06, strength.categories[cat].score / 100);
@@ -221,224 +204,189 @@ export function AnalyticsTab() {
   }).join(' ');
 
   return (
-    <div className="col" style={{ gap: 16 }}>
-      <div className="page-header">
-        <div>
-          <h1 className="page-title">Strength Lab &amp; Analytics</h1>
-          <p className="page-subtitle">
-            DOTS Composite Score, 5-Axis Symmetry &amp; Biomechanical Muscle Volume for{' '}
-            <strong>{activeClient.name}</strong>
-          </p>
-        </div>
-
+    <div className="screen-section">
+      <div className="screen-head">
+        <h1 className="screen-title">Analytics</h1>
         <button
           id="analytics-export-png-btn"
           type="button"
-          className="btn btn-primary"
+          className="btn btn-primary btn-sm"
           onClick={() => setPngModalOpen(true)}
         >
-          <ImageIcon size={15} /> Export Progress PNG
+          <ImageIcon size={15} /> Export PNG
         </button>
       </div>
 
-      {/* SECTION 1: COMPOSITE STRENGTH SCORE & 5-AXIS BALANCE RADAR */}
-      <div className="grid-2">
-        <div className="card col" style={{ gap: 12 }}>
-          <div className="row-between">
-            <div>
-              <span className="section-label">Composite Strength Score (90d)</span>
-              <div className="row" style={{ gap: 10, marginTop: 4 }}>
-                <span className="tabular" style={{ fontSize: 38, fontWeight: 800, lineHeight: 1 }}>
-                  {strength.strengthScore}
-                </span>
-                <span className="chip pr">{strength.tier}</span>
-              </div>
-            </div>
-            <div style={{ textAlign: 'right' }}>
-              <span className="section-label">Balance Index</span>
-              <div
-                className="tabular"
-                style={{ fontSize: 22, fontWeight: 800, color: 'var(--accent-positive)' }}
-              >
-                {strength.balanceIndex}%
-              </div>
-            </div>
-          </div>
+      {/* STRENGTH SCORE & 5-AXIS RADAR */}
+      <div className="section-block">
+        <div className="section-header">
+          <span className="section-label">Strength Score (90d)</span>
+          <span className="row-sub tabular">{strength.balanceIndex}% balance</span>
+        </div>
 
-          {/* 5-Axis SVG Radar Chart */}
-          <div style={{ display: 'flex', justifyContent: 'center' }}>
-            <svg viewBox="0 0 280 240" width="275" height="236" role="img" aria-label="5-Axis Strength Balance Radar">
-              {[0.25, 0.5, 0.75, 1].map((scale) => (
+        <div className="list-group">
+          <div style={{ padding: '16px 16px 8px' }}>
+            <div className="row" style={{ alignItems: 'baseline', gap: 10 }}>
+              <span className="tabular" style={{ fontSize: 34, fontWeight: 700, letterSpacing: '-0.03em' }}>
+                {strength.strengthScore}
+              </span>
+              <span className="row-sub">{strength.tier}</span>
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'center', marginTop: 6 }}>
+              <svg viewBox="0 0 280 238" width="268" height="228" role="img" aria-label="Strength Balance Radar">
+                {[0.25, 0.5, 0.75, 1].map((scale) => (
+                  <polygon
+                    key={scale}
+                    points={RADAR_AXES.map((_, i) => {
+                      const ang = -Math.PI / 2 + (i * 2 * Math.PI) / 5;
+                      return `${rCenterX + Math.cos(ang) * rRadius * scale},${
+                        rCenterY + Math.sin(ang) * rRadius * scale
+                      }`;
+                    }).join(' ')}
+                    fill="none"
+                    stroke="rgba(255,255,255,0.08)"
+                    strokeWidth="1"
+                  />
+                ))}
+
+                {RADAR_AXES.map((cat, i) => {
+                  const ang = -Math.PI / 2 + (i * 2 * Math.PI) / 5;
+                  const x2 = rCenterX + Math.cos(ang) * rRadius;
+                  const y2 = rCenterY + Math.sin(ang) * rRadius;
+                  const lx = rCenterX + Math.cos(ang) * (rRadius + 28);
+                  const ly = rCenterY + Math.sin(ang) * (rRadius + 21);
+                  return (
+                    <g key={cat}>
+                      <line x1={rCenterX} y1={rCenterY} x2={x2} y2={y2} stroke="rgba(255,255,255,0.08)" />
+                      <text x={lx} y={ly} textAnchor="middle" fill="#8E8E93" fontSize="10" fontWeight="500">
+                        {CATEGORY_LABELS[cat]}
+                      </text>
+                      <text x={lx} y={ly + 12} textAnchor="middle" fill="#F5F5F7" fontSize="10.5" fontWeight="700">
+                        {Math.round(strength.categories[cat].score)}
+                      </text>
+                    </g>
+                  );
+                })}
+
                 <polygon
-                  key={scale}
-                  points={RADAR_AXES.map((_, i) => {
-                    const ang = -Math.PI / 2 + (i * 2 * Math.PI) / 5;
-                    return `${rCenterX + Math.cos(ang) * rRadius * scale},${
-                      rCenterY + Math.sin(ang) * rRadius * scale
-                    }`;
-                  }).join(' ')}
-                  fill="none"
-                  stroke="#242429"
-                  strokeWidth="1"
+                  points={radarPolyPoints}
+                  fill="rgba(0, 122, 255, 0.22)"
+                  stroke="#007AFF"
+                  strokeWidth="2"
                 />
-              ))}
-
-              {RADAR_AXES.map((cat, i) => {
-                const ang = -Math.PI / 2 + (i * 2 * Math.PI) / 5;
-                const x2 = rCenterX + Math.cos(ang) * rRadius;
-                const y2 = rCenterY + Math.sin(ang) * rRadius;
-                const lx = rCenterX + Math.cos(ang) * (rRadius + 28);
-                const ly = rCenterY + Math.sin(ang) * (rRadius + 22);
-                return (
-                  <g key={cat}>
-                    <line x1={rCenterX} y1={rCenterY} x2={x2} y2={y2} stroke="#242429" strokeWidth="1" />
-                    <text
-                      x={lx}
-                      y={ly}
-                      textAnchor="middle"
-                      fill="#A1A1AA"
-                      fontSize="9.5"
-                      fontWeight="600"
-                    >
-                      {CATEGORY_LABELS[cat]}
-                    </text>
-                    <text
-                      x={lx}
-                      y={ly + 11}
-                      textAnchor="middle"
-                      fill="#007AFF"
-                      fontSize="10"
-                      fontWeight="800"
-                    >
-                      {Math.round(strength.categories[cat].score)}
-                    </text>
-                  </g>
-                );
-              })}
-
-              <polygon
-                points={radarPolyPoints}
-                fill="rgba(0, 122, 255, 0.24)"
-                stroke="#007AFF"
-                strokeWidth="2.2"
-              />
-            </svg>
+              </svg>
+            </div>
           </div>
 
-          {/* 5-Pattern Breakdown List */}
-          <div className="col" style={{ gap: 6 }}>
-            {RADAR_AXES.map((cat) => {
-              const info = strength.categories[cat];
-              return (
-                <div key={cat} className="row-between" style={{ fontSize: 12.5 }}>
-                  <span style={{ color: 'var(--text-secondary)' }}>
-                    <strong style={{ color: 'var(--text-primary)' }}>{CATEGORY_LABELS[cat]}</strong>
-                    {info.bestLiftName ? ` · ${info.bestLiftName}` : ' · No lift logged'}
+          {RADAR_AXES.map((cat) => {
+            const info = strength.categories[cat];
+            return (
+              <div key={cat} className="list-row" style={{ minHeight: 46 }}>
+                <div className="list-row-body">
+                  <span className="row-title" style={{ fontSize: 14 }}>
+                    {CATEGORY_LABELS[cat]}
                   </span>
-                  <span className="tabular" style={{ fontWeight: 700 }}>
-                    {info.bestE1rmKg > 0
-                      ? `${formatWeight(info.bestE1rmKg, activeClient.unit)}${activeClient.unit} (${Math.round(info.score)})`
-                      : '—'}
-                  </span>
+                  <span className="row-sub">{info.bestLiftName ?? 'No lift logged'}</span>
                 </div>
-              );
-            })}
+                <span className="tabular" style={{ fontWeight: 600, fontSize: 14 }}>
+                  {info.bestE1rmKg > 0
+                    ? `${formatWeight(info.bestE1rmKg, activeClient.unit)}${activeClient.unit}`
+                    : '—'}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* MUSCLE VOLUME HEATMAP */}
+      <div className="section-block">
+        <div className="section-header">
+          <span className="section-label">Muscle Volume</span>
+          <div className="row" style={{ gap: 10 }}>
+            {(
+              [
+                { d: 7, l: '7D' },
+                { d: 30, l: '30D' },
+                { d: 365, l: '1Y' },
+                { d: 0, l: 'ALL' },
+              ] as const
+            ).map((opt) => (
+              <button
+                key={opt.d}
+                type="button"
+                className="tabular"
+                style={{
+                  fontSize: 12,
+                  fontWeight: 600,
+                  color: heatmapDays === opt.d ? 'var(--accent)' : 'var(--text-tertiary)',
+                  minHeight: 28,
+                }}
+                onClick={() => setHeatmapDays(opt.d)}
+              >
+                {opt.l}
+              </button>
+            ))}
           </div>
         </div>
 
-        {/* SECTION 2: INTERACTIVE ANTERIOR / POSTERIOR SVG MUSCLE HEATMAP */}
-        <div className="card col" style={{ gap: 12 }}>
-          <div className="row-between" style={{ flexWrap: 'wrap', gap: 8 }}>
-            <div>
-              <h2 className="card-title">Muscle Volume Heatmap</h2>
-              <p className="card-meta">Tap any muscle to inspect fractional sets</p>
+        <div className="list-group">
+          <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 14 }}>
+            <div className="segmented">
+              <button
+                type="button"
+                className={volumeMode === 'effective' ? 'active' : ''}
+                onClick={() => setVolumeMode('effective')}
+              >
+                Effective Sets
+              </button>
+              <button
+                type="button"
+                className={volumeMode === 'raw' ? 'active' : ''}
+                onClick={() => setVolumeMode('raw')}
+              >
+                Raw Fractional
+              </button>
             </div>
 
-            <div className="row" style={{ gap: 4 }}>
-              {(
-                [
-                  { d: 7, l: '7d' },
-                  { d: 30, l: '30d' },
-                  { d: 365, l: '1yr' },
-                  { d: 0, l: 'All' },
-                ] as const
-              ).map((opt) => (
-                <button
-                  key={opt.d}
-                  type="button"
-                  className={`chip tabular ${heatmapDays === opt.d ? 'active' : ''}`}
-                  style={{ padding: '4px 8px', fontSize: 11.5 }}
-                  onClick={() => setHeatmapDays(opt.d)}
-                >
-                  {opt.l}
-                </button>
-              ))}
-            </div>
+            <MuscleHeatmapSvg
+              volumeMap={muscleVol}
+              mode={volumeMode}
+              selectedMuscle={selectedMuscle}
+              onSelectMuscle={(m) => setSelectedMuscle(m)}
+            />
           </div>
 
-          <div className="split-pill">
-            <button
-              type="button"
-              className={volumeMode === 'effective' ? 'active' : ''}
-              onClick={() => setVolumeMode('effective')}
-            >
-              Effective Sets (RPE-Adjusted)
-            </button>
-            <button
-              type="button"
-              className={volumeMode === 'raw' ? 'active' : ''}
-              onClick={() => setVolumeMode('raw')}
-            >
-              Raw Fractional Sets
-            </button>
-          </div>
-
-          <MuscleHeatmapSvg
-            volumeMap={muscleVol}
-            mode={volumeMode}
-            selectedMuscle={selectedMuscle}
-            onSelectMuscle={(m) => setSelectedMuscle(m)}
-          />
-
-          <div
-            className="card card-compact row-between"
-            style={{ background: 'var(--bg-well)' }}
-          >
+          <div className="list-row" style={{ minHeight: 46 }}>
             {selectedMuscle ? (
               <>
-                <div>
-                  <strong style={{ fontSize: 13.5 }}>{MUSCLE_LABELS[selectedMuscle]}</strong>
-                  <div className="card-meta">Primary = 1.0 · Secondary = 0.5 · RPE &lt; 6 discounted</div>
-                </div>
-                <div className="tabular" style={{ textAlign: 'right' }}>
-                  <div style={{ fontWeight: 800, color: 'var(--accent-primary)' }}>
-                    {muscleVol[selectedMuscle].effectiveSets} eff sets
-                  </div>
-                  <div className="card-meta">{muscleVol[selectedMuscle].rawSets} raw sets</div>
-                </div>
+                <span className="row-title" style={{ fontSize: 14 }}>
+                  {MUSCLE_LABELS[selectedMuscle]}
+                </span>
+                <span className="row-sub tabular" style={{ color: 'var(--text-primary)' }}>
+                  {muscleVol[selectedMuscle].effectiveSets} eff · {muscleVol[selectedMuscle].rawSets} raw
+                </span>
               </>
             ) : (
-              <span className="card-meta">
-                Tap a muscle silhouette above to inspect effective vs. raw fractional volume.
-              </span>
+              <span className="row-sub">Tap a muscle group to inspect sets.</span>
             )}
           </div>
         </div>
       </div>
 
-      {/* SECTION 3: HYBRID e1RM PROGRESSION TREND CHART */}
-      <div className="card col" style={{ gap: 12 }}>
-        <div className="row-between" style={{ flexWrap: 'wrap', gap: 10 }}>
-          <div className="row">
-            <TrendingUp size={16} style={{ color: 'var(--accent-primary)' }} />
-            <h2 className="card-title">Hybrid e1RM Lift Progression</h2>
-          </div>
+      {/* e1RM LIFT PROGRESSION */}
+      <div className="section-block">
+        <div className="section-header">
+          <span className="section-label">Estimated 1RM</span>
+        </div>
 
+        <div className="surface-panel col" style={{ gap: 12 }}>
           {loggedExercises.length > 0 && (
             <select
               value={currentLiftId}
               onChange={(e) => setSelectedLiftId(e.target.value)}
-              style={{ padding: '7px 10px', fontSize: 13, maxWidth: 260 }}
+              style={{ minHeight: 40, padding: '0 10px', fontSize: 14 }}
             >
               {loggedExercises.map((e) => (
                 <option key={e.id} value={e.id}>
@@ -447,116 +395,115 @@ export function AnalyticsTab() {
               ))}
             </select>
           )}
-        </div>
 
-        {liftTrendPoints.length > 0 ? (
-          <div style={{ width: '100%', overflowX: 'auto' }}>
-            {(() => {
-              const svgW = 620;
-              const svgH = 190;
-              const padL = 48;
-              const padR = 20;
-              const padT = 18;
-              const padB = 28;
-              const minVal = Math.floor(Math.min(...liftTrendPoints.map((p) => p.e1rmKg)) * 0.92);
-              const maxVal = Math.ceil(Math.max(...liftTrendPoints.map((p) => p.e1rmKg)) * 1.06) || 100;
-              const plotW = svgW - padL - padR;
-              const plotH = svgH - padT - padB;
-              const coords = liftTrendPoints.map((pt, i) => {
-                const x =
-                  liftTrendPoints.length === 1
-                    ? padL + plotW / 2
-                    : padL + (i / (liftTrendPoints.length - 1)) * plotW;
-                const y =
-                  padT +
-                  plotH -
-                  ((pt.e1rmKg - minVal) / Math.max(1, maxVal - minVal)) * plotH;
-                return { x, y, pt };
-              });
-              const pathD = coords
-                .map((c, idx) => `${idx === 0 ? 'M' : 'L'} ${c.x} ${c.y}`)
-                .join(' ');
-              return (
-                <svg viewBox={`0 0 ${svgW} ${svgH}`} style={{ width: '100%', height: 'auto' }}>
-                  {[0, 0.5, 1].map((t) => {
-                    const y = padT + plotH * t;
-                    const labelVal = maxVal - (maxVal - minVal) * t;
-                    return (
-                      <g key={t}>
-                        <line x1={padL} y1={y} x2={svgW - padR} y2={y} stroke="#242429" strokeWidth="1" />
-                        <text x={padL - 8} y={y + 4} textAnchor="end" fill="#71717A" fontSize="10.5">
-                          {formatWeight(labelVal, activeClient.unit)}
+          {liftTrendPoints.length > 0 ? (
+            <div style={{ width: '100%' }}>
+              {(() => {
+                const svgW = 560;
+                const svgH = 170;
+                const padL = 44;
+                const padR = 18;
+                const padT = 18;
+                const padB = 24;
+                const minVal = Math.floor(Math.min(...liftTrendPoints.map((p) => p.e1rmKg)) * 0.92);
+                const maxVal =
+                  Math.ceil(Math.max(...liftTrendPoints.map((p) => p.e1rmKg)) * 1.06) || 100;
+                const plotW = svgW - padL - padR;
+                const plotH = svgH - padT - padB;
+                const coords = liftTrendPoints.map((pt, i) => ({
+                  x:
+                    liftTrendPoints.length === 1
+                      ? padL + plotW / 2
+                      : padL + (i / (liftTrendPoints.length - 1)) * plotW,
+                  y:
+                    padT +
+                    plotH -
+                    ((pt.e1rmKg - minVal) / Math.max(1, maxVal - minVal)) * plotH,
+                  pt,
+                }));
+                const pathD = coords
+                  .map((c, idx) => `${idx === 0 ? 'M' : 'L'} ${c.x} ${c.y}`)
+                  .join(' ');
+                return (
+                  <svg viewBox={`0 0 ${svgW} ${svgH}`} style={{ width: '100%', height: 'auto' }}>
+                    {[0, 0.5, 1].map((t) => {
+                      const y = padT + plotH * t;
+                      const val = maxVal - (maxVal - minVal) * t;
+                      return (
+                        <g key={t}>
+                          <line
+                            x1={padL}
+                            y1={y}
+                            x2={svgW - padR}
+                            y2={y}
+                            stroke="rgba(255,255,255,0.08)"
+                          />
+                          <text x={padL - 8} y={y + 4} textAnchor="end" fill="#636366" fontSize="10.5">
+                            {formatWeight(val, activeClient.unit)}
+                          </text>
+                        </g>
+                      );
+                    })}
+                    <path d={pathD} fill="none" stroke="#007AFF" strokeWidth="2.4" strokeLinejoin="round" />
+                    {coords.map((c, i) => (
+                      <g key={i}>
+                        <circle cx={c.x} cy={c.y} r="4" fill="#141417" stroke="#007AFF" strokeWidth="2.2" />
+                        <text x={c.x} y={svgH - 6} textAnchor="middle" fill="#636366" fontSize="10">
+                          {new Date(c.pt.dateMs).toLocaleDateString('en-GB', {
+                            day: '2-digit',
+                            month: 'short',
+                          })}
+                        </text>
+                        <text x={c.x} y={c.y - 9} textAnchor="middle" fill="#F5F5F7" fontSize="10" fontWeight="600">
+                          {formatWeight(c.pt.e1rmKg, activeClient.unit)}
                         </text>
                       </g>
-                    );
-                  })}
-                  <path d={pathD} fill="none" stroke="#007AFF" strokeWidth="2.8" strokeLinejoin="round" />
-                  {coords.map((c, i) => (
-                    <g key={i}>
-                      <circle cx={c.x} cy={c.y} r="4.5" fill="#0A0A0C" stroke="#007AFF" strokeWidth="2.5" />
-                      <text x={c.x} y={svgH - 8} textAnchor="middle" fill="#71717A" fontSize="10">
-                        {new Date(c.pt.dateMs).toLocaleDateString('en-GB', {
-                          day: '2-digit',
-                          month: 'short',
-                        })}
-                      </text>
-                      <text x={c.x} y={c.y - 9} textAnchor="middle" fill="#E4E4E7" fontSize="10" fontWeight="700">
-                        {formatWeight(c.pt.e1rmKg, activeClient.unit)}
-                      </text>
-                    </g>
-                  ))}
-                </svg>
-              );
-            })()}
-          </div>
-        ) : (
-          <div className="empty-state">
-            Complete weighted sets for {activeClient.name} to plot hybrid e1RM trends.
-          </div>
-        )}
+                    ))}
+                  </svg>
+                );
+              })()}
+            </div>
+          ) : (
+            <div className="empty-state">No weighted sets logged yet.</div>
+          )}
+        </div>
       </div>
 
-      {/* SECTION 4: 14-POINT BODY MEASUREMENTS & PHOTO OVERLAY COMPARISON SLIDER */}
-      <div className="card col" style={{ gap: 12 }}>
-        <div className="row-between">
-          <div className="row">
-            <Ruler size={16} style={{ color: 'var(--accent-positive)' }} />
-            <div>
-              <h2 className="card-title">Body Measurements &amp; Photo Compare</h2>
-              <p className="card-meta">Track physique changes alongside strength metrics</p>
-            </div>
-          </div>
+      {/* MEASUREMENTS & PHOTO COMPARE */}
+      <div className="section-block">
+        <div className="section-header">
+          <span className="section-label">Measurements</span>
           <button
             type="button"
-            className="btn btn-secondary btn-sm"
+            className="btn-text"
+            style={{ minHeight: 28, fontSize: 13 }}
             onClick={() => {
               setMWeight(String(activeClient.bodyweightKg));
               setMeasModalOpen(true);
             }}
           >
-            <Plus size={14} /> Log Check-In
+            <Plus size={14} style={{ display: 'inline', verticalAlign: '-2px' }} /> Log
           </button>
         </div>
 
-        {/* Before/After Photo Overlay Slider when >= 2 photos exist */}
         {photoMeasurements.length >= 2 && (
-          <div className="col" style={{ gap: 8 }}>
+          <div className="col" style={{ gap: 8, marginBottom: 4 }}>
             <div className="photo-compare-wrap">
               <img
                 src={photoMeasurements[0].photoDataUrl!}
-                alt="Before check-in"
+                alt="Before"
                 className="photo-compare-img"
               />
               <img
                 src={photoMeasurements[photoMeasurements.length - 1].photoDataUrl!}
-                alt="Latest check-in"
+                alt="Latest"
                 className="photo-compare-img"
                 style={{ clipPath: `inset(0 0 0 ${compareSlider}%)` }}
               />
               <div className="photo-compare-divider" style={{ left: `${compareSlider}%` }} />
             </div>
             <div className="row-between">
-              <span className="card-meta tabular">Before: {photoMeasurements[0].date}</span>
+              <span className="row-sub tabular">{photoMeasurements[0].date}</span>
               <input
                 type="range"
                 min={0}
@@ -565,46 +512,40 @@ export function AnalyticsTab() {
                 onChange={(e) => setCompareSlider(Number(e.target.value))}
                 style={{ flex: 1, margin: '0 12px' }}
               />
-              <span className="card-meta tabular">
-                Latest: {photoMeasurements[photoMeasurements.length - 1].date}
+              <span className="row-sub tabular">
+                {photoMeasurements[photoMeasurements.length - 1].date}
               </span>
             </div>
           </div>
         )}
 
-        {measurements.length > 0 ? (
-          <div className="col" style={{ gap: 6 }}>
-            {[...measurements]
+        <div className="list-group">
+          {measurements.length === 0 ? (
+            <div className="empty-state">No measurements logged.</div>
+          ) : (
+            [...measurements]
               .reverse()
               .slice(0, 5)
               .map((m) => (
-                <div
-                  key={m.id}
-                  className="card card-compact row-between"
-                  style={{ background: 'var(--bg-well)', flexWrap: 'wrap' }}
-                >
-                  <div>
-                    <strong className="tabular" style={{ fontSize: 13.5 }}>
-                      {m.date}
-                    </strong>
-                    <div className="card-meta tabular">
-                      {m.bodyweightKg != null && `BW ${formatWeight(m.bodyweightKg, activeClient.unit)}${activeClient.unit}`}
-                      {m.bodyFatPct != null && ` · BF ${m.bodyFatPct}%`}
+                <div key={m.id} className="list-row">
+                  <div className="list-row-body">
+                    <span className="row-title tabular">{m.date}</span>
+                    <span className="row-sub tabular">
+                      {m.bodyweightKg != null &&
+                        `${formatWeight(m.bodyweightKg, activeClient.unit)}${activeClient.unit}`}
+                      {m.bodyFatPct != null && ` · ${m.bodyFatPct}% BF`}
                       {m.waistCm != null && ` · Waist ${m.waistCm}cm`}
                       {m.chestCm != null && ` · Chest ${m.chestCm}cm`}
-                      {m.rightBicepCm != null && ` · Arm ${m.rightBicepCm}cm`}
-                    </div>
+                    </span>
                   </div>
-                  {m.photoDataUrl && <span className="chip active">Photo</span>}
+                  {m.photoDataUrl && <span className="row-sub">Photo</span>}
                 </div>
-              ))}
-          </div>
-        ) : (
-          <div className="empty-state">No body check-ins logged yet for {activeClient.name}.</div>
-        )}
+              ))
+          )}
+        </div>
       </div>
 
-      {/* LOG MEASUREMENT MODAL */}
+      {/* Log Measurement Sheet */}
       {measModalOpen && (
         <div
           className="modal-backdrop"
@@ -614,13 +555,13 @@ export function AnalyticsTab() {
         >
           <div className="modal-sheet">
             <div className="modal-header">
-              <h2 className="card-title">Log Body Measurements · {activeClient.name}</h2>
+              <h2 className="modal-title">Log Measurements</h2>
               <button
                 type="button"
-                className="icon-btn"
+                className="nav-icon-btn"
                 onClick={() => setMeasModalOpen(false)}
               >
-                <X size={16} />
+                <X size={19} />
               </button>
             </div>
             <div className="modal-body">
@@ -630,7 +571,7 @@ export function AnalyticsTab() {
                   <input type="date" value={mDate} onChange={(e) => setMDate(e.target.value)} />
                 </div>
                 <div className="field">
-                  <label>Bodyweight (kg)</label>
+                  <label>Weight (kg)</label>
                   <input
                     type="number"
                     step="0.1"
@@ -640,7 +581,7 @@ export function AnalyticsTab() {
                   />
                 </div>
                 <div className="field">
-                  <label>Body Fat (%)</label>
+                  <label>Body Fat %</label>
                   <input
                     type="number"
                     step="0.1"
@@ -683,23 +624,19 @@ export function AnalyticsTab() {
                 </div>
               </div>
 
-              <div className="field">
-                <label>Progress Photo (Optional — compressed locally for overlay slider)</label>
-                <label className="btn btn-secondary btn-sm" style={{ width: 'fit-content', cursor: 'pointer' }}>
-                  <Camera size={14} /> {mPhoto ? 'Photo Attached ✓' : 'Attach Progress Photo'}
-                  <input
-                    type="file"
-                    accept="image/*"
-                    style={{ display: 'none' }}
-                    onChange={async (e) => {
-                      const f = e.target.files?.[0];
-                      if (!f) return;
-                      const dataUrl = await compressPhotoFile(f);
-                      setMPhoto(dataUrl);
-                    }}
-                  />
-                </label>
-              </div>
+              <label className="btn btn-secondary btn-full" style={{ cursor: 'pointer' }}>
+                <Camera size={16} /> {mPhoto ? 'Photo Attached' : 'Add Progress Photo'}
+                <input
+                  type="file"
+                  accept="image/*"
+                  style={{ display: 'none' }}
+                  onChange={async (e) => {
+                    const f = e.target.files?.[0];
+                    if (!f) return;
+                    setMPhoto(await compressPhotoFile(f));
+                  }}
+                />
+              </label>
 
               <button
                 type="button"
@@ -713,7 +650,6 @@ export function AnalyticsTab() {
         </div>
       )}
 
-      {/* CLIENT PROGRESS PNG MODAL */}
       <ProgressCardModal
         open={pngModalOpen}
         clientId={activeClient.id}

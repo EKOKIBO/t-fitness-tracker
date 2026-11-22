@@ -1,15 +1,5 @@
 import { useState } from 'react';
-import {
-  CheckCircle2,
-  Cloud,
-  Download,
-  FileSpreadsheet,
-  RefreshCw,
-  ShieldCheck,
-  Trash2,
-  Upload,
-  X,
-} from 'lucide-react';
+import { ChevronRight, Download, RefreshCw, Upload, X } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import {
   clearDemoClientsKeepPersonal,
@@ -46,7 +36,6 @@ export function SettingsModal() {
   const [syncUrl, setSyncUrl] = useState(settings.cloudSyncUrl || '/api/sync');
   const [syncKey, setSyncKey] = useState(settings.cloudSyncKey || '');
   const [healthResult, setHealthResult] = useState<string | null>(null);
-
   const [pendingSnapshot, setPendingSnapshot] = useState<TFitBackupSnapshot | null>(null);
   const [importingCsv, setImportingCsv] = useState(false);
 
@@ -59,39 +48,33 @@ export function SettingsModal() {
       cloudSyncEnabled:
         enabledOverride !== undefined ? enabledOverride : settings.cloudSyncEnabled,
     });
-    pushToast('Saved Cloud Sync settings.', 'positive');
+    pushToast('Saved sync settings.');
   };
 
   const testCloudHealth = async () => {
-    setHealthResult('Checking endpoint...');
+    setHealthResult('Checking...');
     try {
       const h = await checkCloudSyncHealth(syncUrl.trim() || '/api/sync');
       if (!h.reachable) {
-        setHealthResult('Endpoint unreachable (local-only mode still works 100%).');
+        setHealthResult('Endpoint unreachable.');
       } else if (!h.dbBound) {
-        setHealthResult('Connected to Cloudflare Worker, but D1 binding (DB) is not attached yet.');
+        setHealthResult('Worker reachable · D1 binding (DB) not attached.');
       } else {
         setHealthResult(
-          `Connected ✓ · D1 Ready (${h.recordCount} synced records · Auth ${
-            h.authProtected ? 'Protected' : 'Open'
-          })`
+          `Connected · ${h.recordCount} records · ${h.authProtected ? 'Key active' : 'No key'}`
         );
       }
     } catch {
-      setHealthResult('Could not reach /api/health (expected when running pure static dev server).');
+      setHealthResult('Endpoint unreachable.');
     }
   };
 
   const handleBackupFileSelect = async (file: File) => {
     try {
-      const text = await file.text();
-      const parsed = validateBackupSnapshot(JSON.parse(text));
+      const parsed = validateBackupSnapshot(JSON.parse(await file.text()));
       setPendingSnapshot(parsed);
     } catch (err) {
-      pushToast(
-        err instanceof Error ? err.message : 'Invalid backup file.',
-        'danger'
-      );
+      pushToast(err instanceof Error ? err.message : 'Invalid backup file.', 'danger');
     }
   };
 
@@ -101,9 +84,8 @@ export function SettingsModal() {
     setPendingSnapshot(null);
     pushToast(
       mode === 'replace'
-        ? `Restored full vault (${res.appliedCount} records).`
-        : `Smart-merged ${res.appliedCount} records safely!`,
-      'positive'
+        ? `Restored ${res.appliedCount} records.`
+        : `Merged ${res.appliedCount} records.`
     );
   };
 
@@ -113,24 +95,20 @@ export function SettingsModal() {
     const csv = exportWorkoutsToCsv(allWorkouts, clientMap, exerciseMap);
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
     const stamp = new Date().toISOString().slice(0, 10);
-    await downloadOrShareFile(blob, `T-workouts-export-${stamp}.csv`, 'T! Workouts CSV', false);
-    pushToast('Exported lossless workouts CSV!', 'positive');
+    await downloadOrShareFile(blob, `T-workouts-${stamp}.csv`, 'T! Workouts CSV', false);
+    pushToast('Exported CSV.');
   };
 
   const handleImportCsv = async (file: File) => {
     if (!activeClient) return;
     setImportingCsv(true);
     try {
-      const text = await file.text();
-      const res = importExternalWorkoutsCsv(text, activeClient.id, exercises);
+      const res = importExternalWorkoutsCsv(await file.text(), activeClient.id, exercises);
       await db.transaction('rw', [db.exercises, db.workouts], async () => {
         if (res.newExercises.length > 0) await db.exercises.bulkPut(res.newExercises);
         if (res.workouts.length > 0) await db.workouts.bulkPut(res.workouts);
       });
-      pushToast(
-        `Imported ${res.workouts.length} workouts (${res.importedSets} sets) from ${res.format.toUpperCase()} CSV for ${activeClient.name}!`,
-        'positive'
-      );
+      pushToast(`Imported ${res.workouts.length} workouts (${res.importedSets} sets).`);
     } catch (err) {
       pushToast(err instanceof Error ? err.message : 'CSV import failed.', 'danger');
     } finally {
@@ -156,46 +134,50 @@ export function SettingsModal() {
     >
       <div className="modal-sheet">
         <div className="modal-header">
-          <div>
-            <h2 className="card-title">Settings, Cloud Sync &amp; Backups</h2>
-            <p className="card-meta">Local-First IndexedDB · €0 Cloudflare D1 Sync · Portability</p>
-          </div>
+          <h2 className="modal-title">Settings</h2>
           <button
             type="button"
-            className="icon-btn"
+            className="nav-icon-btn"
             onClick={() => setSettingsOpen(false)}
+            aria-label="Close settings"
           >
-            <X size={16} />
+            <X size={19} />
           </button>
         </div>
 
         <div className="modal-body">
-          {/* 1. END-OF-DAY SYNC BACKUP FILE (.tfit.json) */}
-          <div className="card card-compact col" style={{ gap: 10 }}>
-            <div className="row">
-              <ShieldCheck size={16} style={{ color: 'var(--accent-pr)' }} />
-              <strong style={{ fontSize: 14 }}>End-of-Day Sync File Backup (.tfit.json)</strong>
-            </div>
-            <p className="card-meta">
-              Export a complete encrypted-safe JSON snapshot of all clients, workouts, progression states, and measurements at the end of the day. Re-import anytime if browser/device data is wiped.
-            </p>
-
-            <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
+          {/* DAILY SYNC FILE BACKUP */}
+          <div className="section-block">
+            <span className="section-label">Daily Sync File</span>
+            <div className="list-group">
               <button
                 id="settings-export-backup-btn"
                 type="button"
-                className="btn btn-amber btn-sm"
-                style={{ flex: 1 }}
+                className="list-row interactive"
                 onClick={() => void triggerEndOfDayBackupExport(true)}
               >
-                <Download size={14} /> Export Sync File
+                <div className="list-row-body">
+                  <span className="row-title">Export Sync File (.tfit.json)</span>
+                  <span className="row-sub tabular">
+                    {settings.lastBackupExportAt > 0
+                      ? `Last: ${new Date(settings.lastBackupExportAt).toLocaleString('en-GB', {
+                          day: '2-digit',
+                          month: 'short',
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })}`
+                      : 'Not exported yet'}
+                  </span>
+                </div>
+                <Download size={17} style={{ color: 'var(--accent)' }} />
               </button>
 
-              <label
-                className="btn btn-secondary btn-sm"
-                style={{ flex: 1, cursor: 'pointer' }}
-              >
-                <Upload size={14} /> Import Sync File
+              <label className="list-row interactive">
+                <div className="list-row-body">
+                  <span className="row-title">Import Sync File</span>
+                  <span className="row-sub">Restore or merge a .tfit.json backup</span>
+                </div>
+                <Upload size={17} style={{ color: 'var(--text-secondary)' }} />
                 <input
                   type="file"
                   accept=".json,.tfit.json,application/json"
@@ -209,139 +191,103 @@ export function SettingsModal() {
               </label>
             </div>
 
-            {/* Preview & Merge/Replace Confirmation */}
             {pendingSnapshot && (
-              <div
-                className="card card-compact col"
-                style={{
-                  background: '#191920',
-                  borderColor: 'rgba(0, 122, 255, 0.5)',
-                }}
-              >
-                <div style={{ fontSize: 13, fontWeight: 700 }}>
-                  Backup Ready: {new Date(pendingSnapshot.exportedAt).toLocaleString('en-GB')}
+              <div className="surface-panel col" style={{ gap: 10 }}>
+                <div className="row-title tabular">
+                  Backup · {new Date(pendingSnapshot.exportedAt).toLocaleDateString('en-GB')}
                 </div>
-                <div className="card-meta tabular">
-                  {pendingSnapshot.stats.clients} clients · {pendingSnapshot.stats.workouts}{' '}
-                  workouts · {pendingSnapshot.stats.routines} routines ·{' '}
-                  {pendingSnapshot.stats.measurements} check-ins
+                <div className="row-sub tabular">
+                  {pendingSnapshot.stats.clients} clients · {pendingSnapshot.stats.workouts} workouts
                 </div>
-                <div className="row" style={{ gap: 6 }}>
+                <div className="field-row">
                   <button
                     type="button"
                     className="btn btn-primary btn-sm"
-                    style={{ flex: 1 }}
                     onClick={() => void applyPendingSnapshot('merge')}
                   >
-                    Smart Merge (Keep Newest)
+                    Smart Merge
                   </button>
                   <button
                     type="button"
-                    className="btn btn-danger-soft btn-sm"
-                    style={{ flex: 1 }}
+                    className="btn btn-danger-text btn-sm"
                     onClick={() => void applyPendingSnapshot('replace')}
                   >
-                    Full Restore (Replace All)
+                    Full Restore
                   </button>
                 </div>
               </div>
             )}
           </div>
 
-          {/* 2. €0 CLOUDFLARE D1 CLOUD SYNC */}
-          <div className="card card-compact col" style={{ gap: 10 }}>
-            <div className="row-between">
-              <div className="row">
-                <Cloud size={16} style={{ color: 'var(--accent-primary)' }} />
-                <strong style={{ fontSize: 14 }}>€0 Cloudflare D1 Cloud Sync</strong>
-              </div>
+          {/* CLOUDFLARE D1 SYNC */}
+          <div className="section-block">
+            <div className="section-header">
+              <span className="section-label">Cloudflare D1 Sync</span>
               <button
                 type="button"
-                className={`chip ${settings.cloudSyncEnabled ? 'positive' : ''}`}
+                className="btn-text"
+                style={{ minHeight: 28, fontSize: 13 }}
                 onClick={() => void saveCloudConfig(!settings.cloudSyncEnabled)}
               >
-                {settings.cloudSyncEnabled ? 'Enabled' : 'Disabled (Local-Only)'}
+                {settings.cloudSyncEnabled ? 'On' : 'Off'}
               </button>
             </div>
 
-            <div className="field">
-              <label>Sync API Endpoint (default <code>/api/sync</code> on Cloudflare)</label>
-              <input
-                type="text"
-                value={syncUrl}
-                onChange={(e) => setSyncUrl(e.target.value)}
-                placeholder="/api/sync"
-              />
-            </div>
-
-            <div className="field">
-              <label>Coach Sync Key (matches <code>COACH_SYNC_KEY</code> secret in Cloudflare)</label>
-              <input
-                type="password"
-                value={syncKey}
-                onChange={(e) => setSyncKey(e.target.value)}
-                placeholder="Your private passphrase"
-              />
-            </div>
-
-            {healthResult && (
-              <div className="card-meta" style={{ color: 'var(--text-primary)' }}>
-                {healthResult}
+            <div className="surface-panel col" style={{ gap: 12 }}>
+              <div className="field">
+                <label>Endpoint</label>
+                <input
+                  type="text"
+                  value={syncUrl}
+                  onChange={(e) => setSyncUrl(e.target.value)}
+                  placeholder="/api/sync"
+                />
               </div>
-            )}
-
-            <div className="row" style={{ gap: 6, flexWrap: 'wrap' }}>
-              <button
-                type="button"
-                className="btn btn-secondary btn-sm"
-                onClick={() => void saveCloudConfig()}
-              >
-                <CheckCircle2 size={14} /> Save Config
-              </button>
-              <button
-                type="button"
-                className="btn btn-secondary btn-sm"
-                onClick={() => void testCloudHealth()}
-              >
-                Test Connection
-              </button>
-              <button
-                type="button"
-                className="btn btn-primary btn-sm"
-                disabled={syncing}
-                onClick={async () => {
-                  await saveCloudConfig(true);
-                  await triggerCloudSync(false);
-                }}
-              >
-                <RefreshCw size={14} /> {syncing ? 'Syncing...' : 'Sync Now'}
-              </button>
-            </div>
-
-            {settings.lastSyncAt > 0 && (
-              <div className="card-meta tabular">
-                Last cloud sync: {new Date(settings.lastSyncAt).toLocaleString('en-GB')}
+              <div className="field">
+                <label>Coach Sync Key</label>
+                <input
+                  type="password"
+                  value={syncKey}
+                  onChange={(e) => setSyncKey(e.target.value)}
+                  placeholder="COACH_SYNC_KEY"
+                />
               </div>
-            )}
+              {healthResult && <div className="row-sub">{healthResult}</div>}
+              <div className="field-row">
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-sm"
+                  onClick={() => void testCloudHealth()}
+                >
+                  Test
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-primary btn-sm"
+                  disabled={syncing}
+                  onClick={async () => {
+                    await saveCloudConfig(true);
+                    await triggerCloudSync(false);
+                  }}
+                >
+                  <RefreshCw size={14} /> {syncing ? 'Syncing' : 'Sync Now'}
+                </button>
+              </div>
+            </div>
           </div>
 
-          {/* 3. UNIVERSAL CSV PORTABILITY (STRONG / HEVY / JEFIT) */}
-          <div className="card card-compact col" style={{ gap: 10 }}>
-            <div className="row">
-              <FileSpreadsheet size={16} style={{ color: 'var(--accent-positive)' }} />
-              <strong style={{ fontSize: 14 }}>Universal CSV Import &amp; Export</strong>
-            </div>
-            <p className="card-meta">
-              Import historical workouts from <strong>Strong</strong>, <strong>Hevy</strong>, or{' '}
-              <strong>Jefit</strong> CSV files into{' '}
-              <strong>{activeClient?.name ?? 'active client'}</strong>, or export all T! logs to CSV.
-            </p>
-            <div className="row" style={{ gap: 8 }}>
-              <label
-                className="btn btn-secondary btn-sm"
-                style={{ flex: 1, cursor: 'pointer' }}
-              >
-                <Upload size={14} /> {importingCsv ? 'Importing...' : 'Import Strong/Hevy CSV'}
+          {/* CSV IMPORT & EXPORT */}
+          <div className="section-block">
+            <span className="section-label">CSV Data</span>
+            <div className="list-group">
+              <label className="list-row interactive">
+                <div className="list-row-body">
+                  <span className="row-title">
+                    {importingCsv ? 'Importing…' : 'Import Strong / Hevy / Jefit CSV'}
+                  </span>
+                  <span className="row-sub">Imports into {activeClient?.name}</span>
+                </div>
+                <ChevronRight size={16} style={{ color: 'var(--text-tertiary)' }} />
                 <input
                   type="file"
                   accept=".csv,text/csv"
@@ -353,43 +299,45 @@ export function SettingsModal() {
                   }}
                 />
               </label>
+
               <button
                 type="button"
-                className="btn btn-secondary btn-sm"
-                style={{ flex: 1 }}
+                className="list-row interactive"
                 onClick={() => void handleExportCsv()}
               >
-                <Download size={14} /> Export All CSV
+                <div className="list-row-body">
+                  <span className="row-title">Export All Workouts (CSV)</span>
+                </div>
+                <ChevronRight size={16} style={{ color: 'var(--text-tertiary)' }} />
               </button>
             </div>
           </div>
 
-          {/* 4. GYM EQUIPMENT INVENTORY */}
-          <div className="card card-compact col" style={{ gap: 10 }}>
-            <strong style={{ fontSize: 14 }}>Barbell &amp; Plate Solver Inventory</strong>
-            <div className="field">
-              <label>Default Empty Barbell (kg)</label>
-              <select
-                value={settings.barbellWeightKg}
-                onChange={(e) =>
-                  void updateAppSettings({ barbellWeightKg: Number(e.target.value) })
-                }
-              >
-                <option value={20}>20 kg (Standard Olympic)</option>
-                <option value={15}>15 kg (Women's Olympic)</option>
-                <option value={25}>25 kg (Trap / Safety Bar)</option>
-              </select>
-            </div>
-            <div className="col" style={{ gap: 5 }}>
-              <span className="section-label">Available Plates (kg)</span>
-              <div className="chip-row">
+          {/* BARBELL & PLATES */}
+          <div className="section-block">
+            <span className="section-label">Equipment</span>
+            <div className="surface-panel col" style={{ gap: 12 }}>
+              <div className="field">
+                <label>Barbell Weight</label>
+                <select
+                  value={settings.barbellWeightKg}
+                  onChange={(e) =>
+                    void updateAppSettings({ barbellWeightKg: Number(e.target.value) })
+                  }
+                >
+                  <option value={20}>20 kg</option>
+                  <option value={15}>15 kg</option>
+                  <option value={25}>25 kg</option>
+                </select>
+              </div>
+              <div className="pill-row">
                 {ALL_PLATES_KG.map((p) => {
                   const active = settings.plateInventoryKg.includes(p);
                   return (
                     <button
                       key={p}
                       type="button"
-                      className={`chip tabular ${active ? 'active' : ''}`}
+                      className={`pill tabular ${active ? 'active' : ''}`}
                       onClick={() => void togglePlate(p)}
                     >
                       {p}kg
@@ -400,25 +348,25 @@ export function SettingsModal() {
             </div>
           </div>
 
-          {/* 5. QUIET MODE & DEMO RESET */}
-          <div className="card card-compact row-between">
-            <div>
-              <strong style={{ fontSize: 13.5 }}>Start Clean for Real Roster</strong>
-              <div className="card-meta">
-                Archives the 3 sample clients (Marcus, Elena, Lukas) &amp; keeps Personal Profile + templates.
-              </div>
+          {/* RESET DEMO */}
+          <div className="section-block">
+            <span className="section-label">Roster</span>
+            <div className="list-group">
+              <button
+                type="button"
+                className="list-row interactive"
+                onClick={async () => {
+                  await clearDemoClientsKeepPersonal();
+                  pushToast('Cleared sample clients.');
+                  setSettingsOpen(false);
+                }}
+              >
+                <span className="row-title" style={{ color: 'var(--danger)' }}>
+                  Clear Sample Clients
+                </span>
+                <span className="row-sub">Keep Personal Profile</span>
+              </button>
             </div>
-            <button
-              type="button"
-              className="btn btn-danger-soft btn-sm"
-              onClick={async () => {
-                await clearDemoClientsKeepPersonal();
-                pushToast('Demo clients archived! Ready to add your real roster.', 'positive');
-                setSettingsOpen(false);
-              }}
-            >
-              <Trash2 size={14} /> Clear Demo
-            </button>
           </div>
         </div>
       </div>

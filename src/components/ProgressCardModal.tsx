@@ -16,10 +16,10 @@ interface ProgressCardModalProps {
 }
 
 const RANGE_OPTIONS: Array<{ days: ReportRangeDays; label: string }> = [
-  { days: 30, label: '30 Days' },
-  { days: 90, label: '90 Days' },
-  { days: 365, label: '1 Year' },
-  { days: 0, label: 'All-Time' },
+  { days: 30, label: '30D' },
+  { days: 90, label: '90D' },
+  { days: 365, label: '1Y' },
+  { days: 0, label: 'All' },
 ];
 
 export function ProgressCardModal({ open, clientId, onClose }: ProgressCardModalProps) {
@@ -75,7 +75,7 @@ export function ProgressCardModal({ open, clientId, onClose }: ProgressCardModal
         }
       })
       .catch(() => {
-        if (!cancelled) pushToast('Could not generate progress card image.', 'danger');
+        if (!cancelled) pushToast('Could not generate image.', 'danger');
       })
       .finally(() => {
         if (!cancelled) setRendering(false);
@@ -90,20 +90,17 @@ export function ProgressCardModal({ open, clientId, onClose }: ProgressCardModal
 
   const filename = `T-progress-${client.name
     .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')}-${rangeDays === 0 ? 'all-time' : `${rangeDays}d`}.png`;
+    .replace(/[^a-z0-9]+/g, '-')}-${rangeDays === 0 ? 'all' : `${rangeDays}d`}.png`;
 
   const handleExport = async (preferShare: boolean) => {
     if (!pngBlob) return;
     const mode = await downloadOrShareFile(
       pngBlob,
       filename,
-      `${client.name} — T! Progress Report`,
+      `${client.name} — Progress Report`,
       preferShare
     );
-    pushToast(
-      mode === 'shared' ? 'Opened share sheet for PNG report.' : `Saved ${filename}`,
-      'positive'
-    );
+    pushToast(mode === 'shared' ? 'Opened share sheet.' : `Saved ${filename}`);
   };
 
   return (
@@ -113,21 +110,19 @@ export function ProgressCardModal({ open, clientId, onClose }: ProgressCardModal
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div className="modal-sheet" style={{ maxWidth: 640 }}>
+      <div className="modal-sheet" style={{ maxWidth: 600 }}>
         <div className="modal-header">
           <div>
-            <h2 className="card-title">Client Progress Card (PNG)</h2>
-            <p className="card-meta">
-              {client.name} · High-DPI 2× graphic ready for WhatsApp / iMessage
-            </p>
+            <h2 className="modal-title">Progress Report</h2>
+            <div className="row-sub">{client.name}</div>
           </div>
-          <button type="button" className="icon-btn" onClick={onClose}>
-            <X size={16} />
+          <button type="button" className="nav-icon-btn" onClick={onClose}>
+            <X size={19} />
           </button>
         </div>
 
         <div className="modal-body">
-          <div className="split-pill">
+          <div className="segmented">
             {RANGE_OPTIONS.map((opt) => (
               <button
                 key={opt.days}
@@ -142,18 +137,18 @@ export function ProgressCardModal({ open, clientId, onClose }: ProgressCardModal
 
           <div
             style={{
-              background: '#08080a',
+              background: '#000000',
               border: '1px solid var(--border-hairline)',
               borderRadius: 'var(--radius-md)',
               padding: 8,
               display: 'flex',
               justifyContent: 'center',
-              minHeight: 280,
+              minHeight: 260,
               alignItems: 'center',
             }}
           >
             {rendering || !previewUrl ? (
-              <span className="card-meta">Rendering 2× retina PNG report...</span>
+              <span className="row-sub">Rendering PNG…</span>
             ) : (
               <img
                 src={previewUrl}
@@ -162,32 +157,30 @@ export function ProgressCardModal({ open, clientId, onClose }: ProgressCardModal
                   width: '100%',
                   maxHeight: '52dvh',
                   objectFit: 'contain',
-                  borderRadius: 12,
+                  borderRadius: 10,
                 }}
               />
             )}
           </div>
 
-          <div className="row" style={{ gap: 8 }}>
+          <div className="field-row">
             <button
               id="share-progress-png-btn"
               type="button"
               className="btn btn-primary"
-              style={{ flex: 1 }}
               disabled={!pngBlob}
               onClick={() => void handleExport(true)}
             >
-              <Share2 size={15} /> Share to WhatsApp / iOS
+              <Share2 size={16} /> Share
             </button>
             <button
               id="download-progress-png-btn"
               type="button"
               className="btn btn-secondary"
-              style={{ flex: 1 }}
               disabled={!pngBlob}
               onClick={() => void handleExport(false)}
             >
-              <Download size={15} /> Download PNG
+              <Download size={16} /> Download PNG
             </button>
           </div>
         </div>

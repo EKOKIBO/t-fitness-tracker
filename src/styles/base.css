@@ -13,7 +13,7 @@ body {
   color: var(--text-primary);
   font-family: var(--font-sans);
   font-size: 15px;
-  line-height: 1.45;
+  line-height: 1.4;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   overscroll-behavior-y: none;
@@ -50,21 +50,21 @@ input,
 select,
 textarea {
   background: var(--bg-well);
-  border: 1px solid var(--border-hairline);
+  border: 1px solid transparent;
   border-radius: var(--radius-sm);
   color: var(--text-primary);
   outline: none;
-  transition: border-color 140ms ease, background-color 140ms ease;
+  font-size: 15px;
+  transition: background-color 120ms ease, border-color 120ms ease;
 }
 
 input:focus,
 select:focus,
 textarea:focus {
-  border-color: var(--accent-primary);
-  background: #23232b;
+  background: var(--bg-well-focus);
+  border-color: var(--accent);
 }
 
-/* Remove number spinners for clean gym input cells */
 input[type='number']::-webkit-inner-spin-button,
 input[type='number']::-webkit-outer-spin-button {
   -webkit-appearance: none;
@@ -86,20 +86,22 @@ p {
   margin: 0;
 }
 
-/* Custom slim dark scrollbars for desktop */
+code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.9em;
+  color: var(--text-primary);
+}
+
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 5px;
+  height: 5px;
 }
 ::-webkit-scrollbar-track {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: #27272f;
+  background: rgba(255, 255, 255, 0.14);
   border-radius: 999px;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: #3a3a45;
 }
 
 @keyframes fadeIn {
@@ -113,22 +115,12 @@ p {
 
 @keyframes slideUpSheet {
   from {
-    transform: translateY(24px);
+    transform: translateY(18px);
     opacity: 0;
   }
   to {
     transform: translateY(0);
     opacity: 1;
-  }
-}
-
-@keyframes pulseSubtle {
-  0%,
-  100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.55;
   }
 }
 

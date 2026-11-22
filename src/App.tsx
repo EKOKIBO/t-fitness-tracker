@@ -39,7 +39,7 @@ function AppShell() {
     toasts,
   } = useApp();
 
-  const [tick, setTick] = useState(Date.now());
+  const [tick, setTick] = useState(() => Date.now());
 
   useEffect(() => {
     if (activeWorkouts.length === 0) return;
@@ -55,14 +55,12 @@ function AppShell() {
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          flexDirection: 'column',
-          gap: 12,
+          fontSize: 24,
+          fontWeight: 800,
+          letterSpacing: '-0.04em',
         }}
       >
-        <div className="brand-mark" style={{ width: 52, height: 52, fontSize: 26 }}>
-          T<span>!</span>
-        </div>
-        <span className="card-meta">Initializing local-first vault...</span>
+        T<span style={{ color: 'var(--accent)' }}>!</span>
       </div>
     );
   }
@@ -87,9 +85,9 @@ function AppShell() {
         {tab === 'exercises' && <ExercisesTab />}
       </main>
 
-      {/* MINIMIZED PARALLEL ACTIVE SESSIONS DOCK */}
+      {/* Minimized Active Session(s) Bar */}
       {!openWorkoutId && activeWorkouts.length > 0 && (
-        <div className="active-dock" aria-label="Minimized Active Sessions">
+        <div className="active-dock" aria-label="Active Sessions">
           {activeWorkouts.map((aw) => {
             const c = clients.find((x) => x.id === aw.clientId);
             const timer = restTimers[aw.id];
@@ -98,41 +96,29 @@ function AppShell() {
               <button
                 key={aw.id}
                 type="button"
-                className="active-session-pill"
+                className="active-session-bar"
                 onClick={() => setOpenWorkoutId(aw.id)}
               >
                 <div className="row" style={{ minWidth: 0 }}>
-                  <span className="live-dot" />
-                  <div style={{ minWidth: 0 }}>
-                    <div
-                      style={{
-                        fontWeight: 700,
-                        fontSize: 13,
-                        whiteSpace: 'nowrap',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                      }}
-                    >
-                      {c?.name.split(' ')[0] ?? 'Client'} · {aw.name}
-                    </div>
-                    <div className="card-meta tabular">
-                      {formatElapsed(tick - aw.startedAt)} elapsed
-                      {rem > 0 && (
-                        <span style={{ color: 'var(--accent-pr)', marginLeft: 8 }}>
-                          · Rest {formatElapsed(rem * 1000)}
-                        </span>
-                      )}
-                    </div>
+                  <span className="status-dot accent" />
+                  <div className="list-row-body">
+                    <span className="row-title" style={{ fontSize: 14 }}>
+                      {c?.name.split(' ')[0]} · {aw.name}
+                    </span>
+                    <span className="row-sub tabular" style={{ fontSize: 12 }}>
+                      {formatElapsed(tick - aw.startedAt)}
+                      {rem > 0 ? ` · Rest ${formatElapsed(rem * 1000)}` : ''}
+                    </span>
                   </div>
                 </div>
-                <Play size={15} style={{ color: 'var(--accent-primary)', flexShrink: 0 }} />
+                <Play size={15} style={{ color: 'var(--accent)', flexShrink: 0 }} />
               </button>
             );
           })}
         </div>
       )}
 
-      {/* 5-TAB BOTTOM NAVIGATION */}
+      {/* Flat Native-Style 5-Tab Bottom Bar */}
       <nav className="bottom-nav" aria-label="Primary Navigation">
         <div className="bottom-nav-inner">
           <button
@@ -141,7 +127,7 @@ function AppShell() {
             className={`nav-tab ${tab === 'home' ? 'active' : ''}`}
             onClick={() => setTab('home')}
           >
-            <Home size={20} />
+            <Home size={21} strokeWidth={1.8} />
             <span>Home</span>
           </button>
 
@@ -151,26 +137,19 @@ function AppShell() {
             className={`nav-tab ${tab === 'programs' ? 'active' : ''}`}
             onClick={() => setTab('programs')}
           >
-            <ClipboardList size={20} />
+            <ClipboardList size={21} strokeWidth={1.8} />
             <span>Programs</span>
           </button>
 
-          <div className="nav-tab-log">
-            <button
-              id="nav-log-fab"
-              type="button"
-              className="nav-log-fab"
-              onClick={handleLogTrigger}
-              aria-label="Log Workout"
-              title={
-                activeWorkouts.length > 0
-                  ? 'Resume active workout sheet'
-                  : 'Start new workout session'
-              }
-            >
-              {activeWorkouts.length > 0 ? <Play size={22} /> : <Plus size={24} />}
-            </button>
-          </div>
+          <button
+            id="nav-log-fab"
+            type="button"
+            className="nav-log-btn"
+            onClick={handleLogTrigger}
+            aria-label="Log Workout"
+          >
+            {activeWorkouts.length > 0 ? <Play size={20} /> : <Plus size={22} />}
+          </button>
 
           <button
             id="nav-analytics"
@@ -178,7 +157,7 @@ function AppShell() {
             className={`nav-tab ${tab === 'analytics' ? 'active' : ''}`}
             onClick={() => setTab('analytics')}
           >
-            <BarChart3 size={20} />
+            <BarChart3 size={21} strokeWidth={1.8} />
             <span>Analytics</span>
           </button>
 
@@ -188,24 +167,20 @@ function AppShell() {
             className={`nav-tab ${tab === 'exercises' ? 'active' : ''}`}
             onClick={() => setTab('exercises')}
           >
-            <BookOpen size={20} />
+            <BookOpen size={21} strokeWidth={1.8} />
             <span>Exercises</span>
           </button>
         </div>
       </nav>
 
-      {/* FULL-SCREEN ACTIVE WORKOUT SHEET & FINISH MODAL */}
       <ActiveWorkoutSheet />
-
-      {/* GLOBAL MODALS */}
       <ClientSwitcherModal />
       <SettingsModal />
 
-      {/* TOAST STACK */}
       <div className="toast-container" aria-live="polite">
         {toasts.map((t) => (
           <div key={t.id} className={`toast-pill ${t.tone}`}>
-            <span>{t.message}</span>
+            {t.message}
           </div>
         ))}
       </div>

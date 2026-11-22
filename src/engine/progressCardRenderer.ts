@@ -220,28 +220,21 @@ export async function renderClientProgressCardPng(
     .slice(-8);
 
   // === BACKGROUND CANVAS ===
-  ctx.fillStyle = '#0A0A0C';
+  ctx.fillStyle = '#000000';
   ctx.fillRect(0, 0, W, H);
-
-  // Subtle top matte sheen (no purple, clean monochrome/cobalt tint)
-  const topGlow = ctx.createRadialGradient(W * 0.85, 0, 20, W * 0.85, 0, 520);
-  topGlow.addColorStop(0, 'rgba(0, 122, 255, 0.14)');
-  topGlow.addColorStop(1, 'rgba(10, 10, 12, 0)');
-  ctx.fillStyle = topGlow;
-  ctx.fillRect(0, 0, W, 420);
 
   // === HEADER ===
   const pad = 56;
   // T! Brand Badge
   ctx.fillStyle = '#141417';
-  roundRect(ctx, pad, 48, 72, 72, 18);
+  roundRect(ctx, pad, 48, 72, 72, 16);
   ctx.fill();
-  ctx.strokeStyle = '#242429';
-  ctx.lineWidth = 2;
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+  ctx.lineWidth = 1.5;
   ctx.stroke();
 
-  ctx.font = '800 38px Inter, -apple-system, BlinkMacSystemFont, sans-serif';
-  ctx.fillStyle = '#FFFFFF';
+  ctx.font = '800 38px -apple-system, BlinkMacSystemFont, Inter, sans-serif';
+  ctx.fillStyle = '#F5F5F7';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.fillText('T', pad + 28, 86);
@@ -251,41 +244,41 @@ export async function renderClientProgressCardPng(
   // Client name + subtitle
   ctx.textAlign = 'left';
   ctx.textBaseline = 'alphabetic';
-  ctx.fillStyle = '#FFFFFF';
-  ctx.font = '800 44px Inter, -apple-system, BlinkMacSystemFont, sans-serif';
+  ctx.fillStyle = '#F5F5F7';
+  ctx.font = '700 42px -apple-system, BlinkMacSystemFont, Inter, sans-serif';
   ctx.fillText(client.name, pad + 96, 86);
 
-  ctx.fillStyle = '#9CA3AF';
-  ctx.font = '500 22px Inter, -apple-system, BlinkMacSystemFont, sans-serif';
+  ctx.fillStyle = '#8E8E93';
+  ctx.font = '500 21px -apple-system, BlinkMacSystemFont, Inter, sans-serif';
   const genDate = new Date(now).toLocaleDateString('en-GB', {
     day: 'numeric',
     month: 'short',
     year: 'numeric',
   });
   ctx.fillText(
-    `PROGRESS REPORT  ·  ${rangeLabel(rangeDays).toUpperCase()}  ·  ${genDate}`,
+    `${rangeLabel(rangeDays).toUpperCase()}  ·  ${genDate}`,
     pad + 96,
     118
   );
 
-  // Tier Pill on Top Right
+  // Clean Tier Label on Top Right
   const tierText = strength.tier.toUpperCase();
-  ctx.font = '700 20px Inter, -apple-system, BlinkMacSystemFont, sans-serif';
-  const pillW = ctx.measureText(tierText).width + 44;
-  ctx.fillStyle = 'rgba(0, 122, 255, 0.16)';
-  roundRect(ctx, W - pad - pillW, 60, pillW, 46, 23);
+  ctx.font = '600 18px -apple-system, BlinkMacSystemFont, Inter, sans-serif';
+  const pillW = ctx.measureText(tierText).width + 40;
+  ctx.fillStyle = '#141417';
+  roundRect(ctx, W - pad - pillW, 62, pillW, 44, 12);
   ctx.fill();
-  ctx.strokeStyle = 'rgba(0, 122, 255, 0.45)';
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
   ctx.lineWidth = 1.5;
   ctx.stroke();
-  ctx.fillStyle = '#3898FF';
+  ctx.fillStyle = '#F5F5F7';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillText(tierText, W - pad - pillW / 2, 84);
+  ctx.fillText(tierText, W - pad - pillW / 2, 85);
 
-  // === KPI ROW (4 CARDS) ===
+  // === KPI ROW (4 CARDS — STRICT MONOCHROME METRICS) ===
   const kpiY = 158;
-  const kpiH = 136;
+  const kpiH = 132;
   const gap = 20;
   const kpiW = (W - pad * 2 - gap * 3) / 4;
 
@@ -295,10 +288,10 @@ export async function renderClientProgressCardPng(
       : `${Math.round(totalVolumeKg)} ${client.unit}`;
 
   const kpis = [
-    { label: 'SESSIONS', value: `${periodWorkouts.length}`, sub: `${totalWorkingSets} working sets`, color: '#FFFFFF' },
-    { label: 'TOTAL VOLUME', value: volDisplay, sub: 'Cumulative load moved', color: '#007AFF' },
-    { label: 'STRENGTH SCORE', value: `${strength.strengthScore}`, sub: 'DOTS 0–100 composite', color: '#FFB800' },
-    { label: 'BALANCE INDEX', value: `${strength.balanceIndex}%`, sub: '5-pattern symmetry', color: '#10B981' },
+    { label: 'SESSIONS', value: `${periodWorkouts.length}`, sub: `${totalWorkingSets} working sets`, color: '#F5F5F7' },
+    { label: 'VOLUME', value: volDisplay, sub: 'Cumulative load', color: '#F5F5F7' },
+    { label: 'STRENGTH', value: `${strength.strengthScore}`, sub: 'DOTS 0–100', color: '#F5F5F7' },
+    { label: 'BALANCE', value: `${strength.balanceIndex}%`, sub: '5-axis symmetry', color: '#F5F5F7' },
   ];
 
   kpis.forEach((kpi, i) => {

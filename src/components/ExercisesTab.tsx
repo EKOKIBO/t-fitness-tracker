@@ -1,14 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import {
-  Award,
-  CheckCircle2,
-  Pin,
-  Plus,
-  Search,
-  SlidersHorizontal,
-  X,
-} from 'lucide-react';
+import { ChevronRight, Plus, Search, X } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { db, generateId } from '../db/database';
 import { calculateHybridE1RM } from '../engine/formulas';
@@ -40,14 +32,13 @@ const EQUIPMENT_LIST: EquipmentType[] = [
 export function ExercisesTab() {
   const { exercises, activeClient, pushToast } = useApp();
   const [query, setQuery] = useState('');
-  const [equipFilter, setEquipFilter] = useState<string>('all');
-  const [muscleFilter, setMuscleFilter] = useState<string>('all');
+  const [equipFilter, setEquipFilter] = useState('all');
+  const [muscleFilter, setMuscleFilter] = useState('all');
   const [selectedEx, setSelectedEx] = useState<Exercise | null>(null);
   const [detailTab, setDetailTab] = useState<'overview' | 'history' | 'records' | 'instructions'>(
     'overview'
   );
 
-  // Custom Exercise Modal
   const [createOpen, setCreateOpen] = useState(false);
   const [cName, setCName] = useState('');
   const [cEquip, setCEquip] = useState<EquipmentType>('Dumbbell');
@@ -55,7 +46,6 @@ export function ExercisesTab() {
   const [cSecondary, setCSecondary] = useState<MuscleGroup | ''>('');
   const [cInstructions, setCInstructions] = useState('');
 
-  // Client setup note & progression state inside detail modal
   const [setupCueDraft, setSetupCueDraft] = useState('');
   const [progModeDraft, setProgModeDraft] = useState<ProgressionMode>('none');
   const [tmInput, setTmInput] = useState('100');
@@ -164,10 +154,7 @@ export function ExercisesTab() {
       updatedAt: Date.now(),
       deletedAt: null,
     });
-    pushToast(
-      `Saved ${activeClient.name.split(' ')[0]}'s cue & progression engine for ${selectedEx.name}.`,
-      'positive'
-    );
+    pushToast('Saved exercise settings.');
   };
 
   const createCustomExercise = async () => {
@@ -195,10 +182,9 @@ export function ExercisesTab() {
     setCName('');
     setCInstructions('');
     setCreateOpen(false);
-    pushToast(`Added custom exercise "${ex.name}"`, 'positive');
+    pushToast(`Added ${ex.name}`);
   };
 
-  // History & Scatter Plot data for currently selected exercise
   const exHistory = useMemo(() => {
     if (!selectedEx) return [];
     const items: Array<{
@@ -234,50 +220,36 @@ export function ExercisesTab() {
 
   const records = useMemo(() => {
     if (allScatterSets.length === 0) return null;
-    const maxWeight = Math.max(...allScatterSets.map((s) => s.weightKg));
-    const maxE1rm = Math.max(...allScatterSets.map((s) => s.e1rmKg));
-    const maxVol = Math.max(...allScatterSets.map((s) => s.weightKg * s.reps));
-    return { maxWeight, maxE1rm, maxVol };
+    return {
+      maxWeight: Math.max(...allScatterSets.map((s) => s.weightKg)),
+      maxE1rm: Math.max(...allScatterSets.map((s) => s.e1rmKg)),
+    };
   }, [allScatterSets]);
 
   return (
-    <div className="col" style={{ gap: 14 }}>
-      <div className="page-header">
-        <div>
-          <h1 className="page-title">Exercises ({exercises.length})</h1>
-          <p className="page-subtitle">
-            Instant movement catalog, per-client cue notes &amp; progression rules
-          </p>
-        </div>
+    <div className="screen-section">
+      <div className="screen-head">
+        <h1 className="screen-title">Exercises</h1>
         <button
           id="create-custom-exercise-btn"
           type="button"
-          className="btn btn-primary btn-sm"
+          className="nav-icon-btn accent"
           onClick={() => setCreateOpen(true)}
+          aria-label="New custom exercise"
         >
-          <Plus size={14} /> Custom Exercise
+          <Plus size={22} />
         </button>
       </div>
 
-      {/* Fuzzy Search & Filters */}
-      <div className="col" style={{ gap: 8 }}>
-        <div style={{ position: 'relative' }}>
-          <Search
-            size={15}
-            style={{
-              position: 'absolute',
-              left: 12,
-              top: '50%',
-              transform: 'translateY(-50%)',
-              color: 'var(--text-muted)',
-            }}
-          />
+      <div className="col" style={{ gap: 10 }}>
+        <div className="search-wrap">
+          <Search size={16} />
           <input
             type="text"
-            placeholder="Search movement, muscle, or equipment..."
+            className="search-input"
+            placeholder="Search exercises"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            style={{ width: '100%', padding: '10px 12px 10px 36px', fontSize: 14 }}
           />
         </div>
 
@@ -285,7 +257,7 @@ export function ExercisesTab() {
           <select
             value={equipFilter}
             onChange={(e) => setEquipFilter(e.target.value)}
-            style={{ padding: '8px 10px', fontSize: 13 }}
+            style={{ minHeight: 40, padding: '0 10px', fontSize: 13.5 }}
           >
             <option value="all">All Equipment</option>
             {EQUIPMENT_LIST.map((eq) => (
@@ -298,7 +270,7 @@ export function ExercisesTab() {
           <select
             value={muscleFilter}
             onChange={(e) => setMuscleFilter(e.target.value)}
-            style={{ padding: '8px 10px', fontSize: 13 }}
+            style={{ minHeight: 40, padding: '0 10px', fontSize: 13.5 }}
           >
             <option value="all">All Muscles</option>
             {(Object.keys(MUSCLE_LABELS) as MuscleGroup[]).map((m) => (
@@ -310,46 +282,28 @@ export function ExercisesTab() {
         </div>
       </div>
 
-      {/* Exercise List */}
-      <div className="col" style={{ gap: 8 }}>
+      {/* Unified iOS Grouped List */}
+      <div className="list-group">
         {filtered.map((ex) => (
           <button
             key={ex.id}
             type="button"
-            className="card card-compact row-between"
-            style={{ textAlign: 'left', width: '100%' }}
+            className="list-row interactive"
             onClick={() => void openExerciseDetail(ex)}
           >
-            <div style={{ minWidth: 0 }}>
-              <div className="row" style={{ gap: 6, flexWrap: 'wrap' }}>
-                <strong style={{ fontSize: 14.5 }}>{ex.name}</strong>
-                {ex.isCanonicalStrengthLift && (
-                  <span className="chip pr" style={{ padding: '1px 7px', fontSize: 10.5 }}>
-                    DOTS Lift
-                  </span>
-                )}
-                {ex.isCustom && (
-                  <span className="chip active" style={{ padding: '1px 7px', fontSize: 10.5 }}>
-                    Custom
-                  </span>
-                )}
-              </div>
-              <div className="card-meta">
-                {ex.equipment} ·{' '}
-                {ex.primaryMuscles.map((m) => MUSCLE_LABELS[m]).join(', ')}
-                {ex.secondaryMuscles.length > 0 &&
-                  ` (+ ${ex.secondaryMuscles.map((m) => MUSCLE_LABELS[m]).join(', ')})`}
-              </div>
+            <div className="list-row-body">
+              <span className="row-title">{ex.name}</span>
+              <span className="row-sub">
+                {ex.equipment} · {ex.primaryMuscles.map((m) => MUSCLE_LABELS[m]).join(', ')}
+              </span>
             </div>
-            <SlidersHorizontal size={15} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
+            <ChevronRight size={16} style={{ color: 'var(--text-tertiary)', flexShrink: 0 }} />
           </button>
         ))}
-        {filtered.length === 0 && (
-          <div className="empty-state">No exercises matched your filters.</div>
-        )}
+        {filtered.length === 0 && <div className="empty-state">No matching exercises.</div>}
       </div>
 
-      {/* 4-SUB-TAB EXERCISE DETAIL SHEET */}
+      {/* 4-Sub-Tab Exercise Detail Sheet */}
       {selectedEx && activeClient && (
         <div
           className="modal-backdrop"
@@ -359,23 +313,23 @@ export function ExercisesTab() {
         >
           <div className="modal-sheet">
             <div className="modal-header">
-              <div>
-                <h2 className="card-title">{selectedEx.name}</h2>
-                <p className="card-meta">
-                  {selectedEx.equipment} · Context: {activeClient.name}
-                </p>
+              <div style={{ minWidth: 0 }}>
+                <h2 className="modal-title" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  {selectedEx.name}
+                </h2>
+                <div className="row-sub">{selectedEx.equipment}</div>
               </div>
               <button
                 type="button"
-                className="icon-btn"
+                className="nav-icon-btn"
                 onClick={() => setSelectedEx(null)}
               >
-                <X size={16} />
+                <X size={19} />
               </button>
             </div>
 
             <div className="modal-body">
-              <div className="split-pill">
+              <div className="segmented">
                 {(
                   [
                     { id: 'overview', label: 'Overview' },
@@ -396,53 +350,46 @@ export function ExercisesTab() {
               </div>
 
               {detailTab === 'overview' && (
-                <div className="col" style={{ gap: 12 }}>
-                  <div className="card card-compact" style={{ background: '#0e0e12' }}>
+                <div className="col" style={{ gap: 16 }}>
+                  <div className="surface-panel">
                     <MuscleHeatmapSvg
                       highlightPrimary={selectedEx.primaryMuscles}
                       highlightSecondary={selectedEx.secondaryMuscles}
                       compact={true}
                     />
-                    <div className="chip-row" style={{ justifyContent: 'center', marginTop: 8 }}>
-                      {selectedEx.primaryMuscles.map((m) => (
-                        <span key={m} className="chip active">
-                          Primary: {MUSCLE_LABELS[m]}
-                        </span>
-                      ))}
-                      {selectedEx.secondaryMuscles.map((m) => (
-                        <span key={m} className="chip">
-                          Secondary: {MUSCLE_LABELS[m]}
-                        </span>
-                      ))}
+                    <div
+                      className="row-sub"
+                      style={{ textAlign: 'center', marginTop: 10, whiteSpace: 'normal' }}
+                    >
+                      {selectedEx.primaryMuscles.map((m) => MUSCLE_LABELS[m]).join(', ')}
+                      {selectedEx.secondaryMuscles.length > 0 &&
+                        ` · Secondary: ${selectedEx.secondaryMuscles
+                          .map((m) => MUSCLE_LABELS[m])
+                          .join(', ')}`}
                     </div>
                   </div>
 
-                  {/* Per-Client Sticky Equipment Setup Note */}
                   <div className="field">
-                    <label className="row" style={{ gap: 5 }}>
-                      <Pin size={12} style={{ color: 'var(--accent-pr)' }} />
-                      Pinned Equipment &amp; Cue Note for {activeClient.name.split(' ')[0]}
-                    </label>
+                    <label>Setup Cue ({activeClient.name.split(' ')[0]})</label>
                     <input
                       type="text"
-                      placeholder="e.g., Pin #4 · Belt hole #3 · Neutral grip"
+                      placeholder="Seat pin, grip, bar position"
                       value={setupCueDraft}
                       onChange={(e) => setSetupCueDraft(e.target.value)}
                     />
                   </div>
 
-                  {/* Per-Client Algorithmic Progression Assignment */}
                   <div className="field">
-                    <label>Progression Algorithm ({activeClient.name.split(' ')[0]})</label>
+                    <label>Progression Mode</label>
                     <select
                       value={progModeDraft}
                       onChange={(e) => setProgModeDraft(e.target.value as ProgressionMode)}
                     >
-                      <option value="none">Manual Logging (No Auto-Engine)</option>
-                      <option value="double_progression">Mode A: Deterministic Double Progression</option>
-                      <option value="tm_amrap">Mode B: Training Max (TM) + AMRAP 5/3/1</option>
-                      <option value="gzclp">Mode C: GZCLP Linear Failure-Cascade</option>
-                      <option value="rpe_autoreg">Mode D: RPE / RIR Autoregulation + Deloads</option>
+                      <option value="none">Manual</option>
+                      <option value="double_progression">Double Progression</option>
+                      <option value="tm_amrap">TM + AMRAP (5/3/1)</option>
+                      <option value="gzclp">GZCLP Cascade</option>
+                      <option value="rpe_autoreg">RPE Autoregulation</option>
                     </select>
                   </div>
 
@@ -457,7 +404,7 @@ export function ExercisesTab() {
                         <input type="number" value={dpMax} onChange={(e) => setDpMax(e.target.value)} />
                       </div>
                       <div className="field">
-                        <label>Step +kg</label>
+                        <label>Step kg</label>
                         <input type="number" step="0.5" value={dpInc} onChange={(e) => setDpInc(e.target.value)} />
                       </div>
                     </div>
@@ -478,10 +425,10 @@ export function ExercisesTab() {
                       {records && (
                         <button
                           type="button"
-                          className="btn btn-secondary btn-sm"
+                          className="btn btn-secondary"
                           onClick={() => setTmInput(String(initTrainingMax(records.maxE1rm)))}
                         >
-                          90% of e1RM ({initTrainingMax(records.maxE1rm)}kg)
+                          90% ({initTrainingMax(records.maxE1rm)}kg)
                         </button>
                       )}
                     </div>
@@ -489,7 +436,7 @@ export function ExercisesTab() {
 
                   {progModeDraft === 'gzclp' && (
                     <div className="field">
-                      <label>Starting Stage 1 Weight (5×3, kg)</label>
+                      <label>Stage 1 Weight (5×3, kg)</label>
                       <input
                         type="number"
                         step="2.5"
@@ -501,7 +448,7 @@ export function ExercisesTab() {
 
                   {progModeDraft === 'rpe_autoreg' && (
                     <div className="field">
-                      <label>Target RPE (Auto-scales next set ±3.5% per RPE)</label>
+                      <label>Target RPE</label>
                       <input
                         type="number"
                         step="0.5"
@@ -518,45 +465,41 @@ export function ExercisesTab() {
                     className="btn btn-primary btn-full"
                     onClick={() => void saveClientExerciseConfig()}
                   >
-                    Save Client Settings for This Lift
+                    Save
                   </button>
                 </div>
               )}
 
               {detailTab === 'history' && (
-                <div className="col" style={{ gap: 8 }}>
+                <div className="list-group">
                   {exHistory.length === 0 ? (
-                    <div className="empty-state">
-                      No logged history for {selectedEx.name} ({activeClient.name}).
-                    </div>
+                    <div className="empty-state">No logged sets yet.</div>
                   ) : (
                     exHistory.map((h, i) => (
-                      <div key={i} className="card card-compact" style={{ background: 'var(--bg-well)' }}>
+                      <div
+                        key={i}
+                        className="list-row"
+                        style={{ flexDirection: 'column', alignItems: 'stretch', gap: 6 }}
+                      >
                         <div className="row-between">
-                          <strong style={{ fontSize: 13.5 }}>{h.workoutName}</strong>
-                          <span className="card-meta tabular">
+                          <span className="row-title">{h.workoutName}</span>
+                          <span className="row-sub tabular">
                             {new Date(h.dateMs).toLocaleDateString('en-GB', {
                               day: '2-digit',
                               month: 'short',
-                              year: 'numeric',
                             })}
                           </span>
                         </div>
-                        <div className="col" style={{ gap: 3, marginTop: 6 }}>
-                          {h.sets.map((s, si) => (
-                            <div key={si} className="row-between card-meta tabular">
-                              <span>
-                                Set {si + 1}:{' '}
-                                <strong style={{ color: 'var(--text-primary)' }}>
-                                  {formatWeight(s.weightKg, activeClient.unit)} {activeClient.unit} ×{' '}
-                                  {s.reps}
-                                </strong>
-                                {s.rpe ? ` @ RPE ${s.rpe}` : ''}
-                              </span>
-                              <span>e1RM {formatWeight(s.e1rmKg, activeClient.unit)}</span>
-                            </div>
-                          ))}
-                        </div>
+                        {h.sets.map((s, si) => (
+                          <div key={si} className="row-between row-sub tabular">
+                            <span>
+                              {formatWeight(s.weightKg, activeClient.unit)} {activeClient.unit} ×{' '}
+                              {s.reps}
+                              {s.rpe ? ` @${s.rpe}` : ''}
+                            </span>
+                            <span>e1RM {formatWeight(s.e1rmKg, activeClient.unit)}</span>
+                          </div>
+                        ))}
                       </div>
                     ))
                   )}
@@ -564,42 +507,40 @@ export function ExercisesTab() {
               )}
 
               {detailTab === 'records' && (
-                <div className="col" style={{ gap: 12 }}>
+                <div className="col" style={{ gap: 14 }}>
                   {records ? (
                     <>
-                      <div className="kpi-grid">
-                        <div className="kpi-tile">
-                          <span className="section-label">Best Hybrid e1RM</span>
-                          <span className="kpi-value tabular" style={{ color: 'var(--accent-pr)' }}>
-                            {formatWeight(records.maxE1rm, activeClient.unit)} {activeClient.unit}
+                      <div className="metrics-strip">
+                        <div className="metric-cell">
+                          <span className="metric-label">Best e1RM</span>
+                          <span className="metric-value tabular">
+                            {formatWeight(records.maxE1rm, activeClient.unit)}
+                            <span className="metric-unit">{activeClient.unit}</span>
                           </span>
                         </div>
-                        <div className="kpi-tile">
-                          <span className="section-label">Heaviest Set</span>
-                          <span className="kpi-value tabular" style={{ color: 'var(--accent-primary)' }}>
-                            {formatWeight(records.maxWeight, activeClient.unit)} {activeClient.unit}
+                        <div className="metric-cell">
+                          <span className="metric-label">Heaviest Set</span>
+                          <span className="metric-value tabular">
+                            {formatWeight(records.maxWeight, activeClient.unit)}
+                            <span className="metric-unit">{activeClient.unit}</span>
                           </span>
                         </div>
                       </div>
 
-                      {/* Weight vs Reps Scatter Plot */}
-                      <div className="card card-compact" style={{ background: '#0e0e12' }}>
-                        <div className="row" style={{ marginBottom: 6 }}>
-                          <Award size={14} style={{ color: 'var(--accent-pr)' }} />
-                          <span className="section-label">Weight × Reps Scatter Plot</span>
-                        </div>
+                      <div className="surface-panel">
+                        <span className="section-label">Weight vs Reps</span>
                         {(() => {
                           const maxR = Math.max(12, ...allScatterSets.map((s) => s.reps));
                           const maxW = Math.max(20, ...allScatterSets.map((s) => s.weightKg));
                           return (
-                            <svg viewBox="0 0 360 150" style={{ width: '100%', height: 'auto' }}>
-                              <line x1="36" y1="12" x2="36" y2="124" stroke="#242429" />
-                              <line x1="36" y1="124" x2="345" y2="124" stroke="#242429" />
-                              <text x="190" y="144" textAnchor="middle" fill="#71717A" fontSize="10">
+                            <svg
+                              viewBox="0 0 360 150"
+                              style={{ width: '100%', height: 'auto', marginTop: 8 }}
+                            >
+                              <line x1="36" y1="12" x2="36" y2="124" stroke="rgba(255,255,255,0.08)" />
+                              <line x1="36" y1="124" x2="345" y2="124" stroke="rgba(255,255,255,0.08)" />
+                              <text x="190" y="144" textAnchor="middle" fill="#636366" fontSize="10">
                                 Reps
-                              </text>
-                              <text x="12" y="70" fill="#71717A" fontSize="10">
-                                {activeClient.unit}
                               </text>
                               {allScatterSets.map((s, idx) => {
                                 const x = 44 + (s.reps / maxR) * 290;
@@ -610,9 +551,9 @@ export function ExercisesTab() {
                                     key={idx}
                                     cx={x}
                                     cy={y}
-                                    r={isPeak ? 5.5 : 3.8}
-                                    fill={isPeak ? '#FFB800' : '#007AFF'}
-                                    fillOpacity={isPeak ? 1 : 0.72}
+                                    r={isPeak ? 5 : 3.5}
+                                    fill={isPeak ? '#FFFFFF' : '#007AFF'}
+                                    fillOpacity={isPeak ? 1 : 0.7}
                                   />
                                 );
                               })}
@@ -622,32 +563,26 @@ export function ExercisesTab() {
                       </div>
                     </>
                   ) : (
-                    <div className="empty-state">Log sets to compute PRs and scatter plots.</div>
+                    <div className="empty-state">No records yet.</div>
                   )}
                 </div>
               )}
 
               {detailTab === 'instructions' && (
-                <div className="col" style={{ gap: 10 }}>
-                  {selectedEx.instructions.map((step, i) => (
-                    <div key={i} className="row" style={{ alignItems: 'flex-start' }}>
-                      <CheckCircle2
-                        size={16}
-                        style={{ color: 'var(--accent-positive)', marginTop: 2, flexShrink: 0 }}
-                      />
-                      <span style={{ fontSize: 13.5, color: 'var(--text-primary)' }}>{step}</span>
-                    </div>
-                  ))}
-                  {selectedEx.bodyRegions.length > 0 && (
-                    <div className="col" style={{ marginTop: 6 }}>
-                      <span className="section-label">Joints Loaded (Injury Cross-Check)</span>
-                      <div className="chip-row">
-                        {selectedEx.bodyRegions.map((r) => (
-                          <span key={r} className="chip">
-                            {BODY_REGION_LABELS[r]}
-                          </span>
-                        ))}
+                <div className="col" style={{ gap: 14 }}>
+                  <div className="list-group">
+                    {selectedEx.instructions.map((step, i) => (
+                      <div key={i} className="list-row">
+                        <span className="row-sub tabular" style={{ width: 18 }}>
+                          {i + 1}.
+                        </span>
+                        <span style={{ fontSize: 14, flex: 1 }}>{step}</span>
                       </div>
+                    ))}
+                  </div>
+                  {selectedEx.bodyRegions.length > 0 && (
+                    <div className="row-sub">
+                      Joints: {selectedEx.bodyRegions.map((r) => BODY_REGION_LABELS[r]).join(', ')}
                     </div>
                   )}
                 </div>
@@ -657,7 +592,7 @@ export function ExercisesTab() {
         </div>
       )}
 
-      {/* CREATE CUSTOM EXERCISE MODAL */}
+      {/* Create Custom Exercise */}
       {createOpen && (
         <div
           className="modal-backdrop"
@@ -667,17 +602,21 @@ export function ExercisesTab() {
         >
           <div className="modal-sheet">
             <div className="modal-header">
-              <h2 className="card-title">Create Custom Exercise</h2>
-              <button type="button" className="icon-btn" onClick={() => setCreateOpen(false)}>
-                <X size={16} />
+              <h2 className="modal-title">New Exercise</h2>
+              <button
+                type="button"
+                className="nav-icon-btn"
+                onClick={() => setCreateOpen(false)}
+              >
+                <X size={19} />
               </button>
             </div>
             <div className="modal-body">
               <div className="field">
-                <label>Exercise Name</label>
+                <label>Name</label>
                 <input
                   type="text"
-                  placeholder="e.g., Belt Squat Machine"
+                  placeholder="Belt Squat"
                   value={cName}
                   onChange={(e) => setCName(e.target.value)}
                 />
@@ -697,7 +636,7 @@ export function ExercisesTab() {
                   </select>
                 </div>
                 <div className="field">
-                  <label>Primary Muscle</label>
+                  <label>Primary</label>
                   <select
                     value={cPrimary}
                     onChange={(e) => setCPrimary(e.target.value as MuscleGroup)}
@@ -725,10 +664,9 @@ export function ExercisesTab() {
                 </div>
               </div>
               <div className="field">
-                <label>Coaching Cues (1 per line)</label>
+                <label>Cues (one per line)</label>
                 <textarea
                   rows={3}
-                  placeholder="Brace core&#10;Control 2s eccentric"
                   value={cInstructions}
                   onChange={(e) => setCInstructions(e.target.value)}
                 />
@@ -738,7 +676,7 @@ export function ExercisesTab() {
                 className="btn btn-primary btn-full"
                 onClick={() => void createCustomExercise()}
               >
-                Add to Catalog
+                Add Exercise
               </button>
             </div>
           </div>

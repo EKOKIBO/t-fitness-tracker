@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Flame, Plus, X } from 'lucide-react';
+import { Plus, X } from 'lucide-react';
 import {
   DEFAULT_PLATE_INVENTORY_KG,
   generateWarmupRamp,
@@ -29,7 +29,9 @@ export function PlateCalculatorModal({
   exerciseName,
   onInsertWarmups,
 }: PlateCalculatorModalProps) {
-  const [targetWeight, setTargetWeight] = useState(String(initialWeightKg > 0 ? initialWeightKg : 100));
+  const [targetWeight, setTargetWeight] = useState(
+    String(initialWeightKg > 0 ? initialWeightKg : 100)
+  );
   const [barMass, setBarMass] = useState(barWeightKg || 20);
 
   const parsedTarget = Math.max(barMass, parseFloat(targetWeight) || barMass);
@@ -61,18 +63,18 @@ export function PlateCalculatorModal({
       <div className="modal-sheet">
         <div className="modal-header">
           <div>
-            <h2 className="card-title">Barbell Plate Solver &amp; Warm-Up Ramp</h2>
-            <p className="card-meta">{exerciseName || 'Greedy IPF color-coded plate loader'}</p>
+            <h2 className="modal-title">Plates &amp; Warm-Up</h2>
+            {exerciseName && <div className="row-sub">{exerciseName}</div>}
           </div>
-          <button type="button" className="icon-btn" onClick={onClose}>
-            <X size={16} />
+          <button type="button" className="nav-icon-btn" onClick={onClose}>
+            <X size={19} />
           </button>
         </div>
 
         <div className="modal-body">
           <div className="field-row">
             <div className="field">
-              <label>Working Target Weight (kg)</label>
+              <label>Target Weight (kg)</label>
               <input
                 type="number"
                 step="2.5"
@@ -82,25 +84,21 @@ export function PlateCalculatorModal({
               />
             </div>
             <div className="field">
-              <label>Empty Barbell (kg)</label>
-              <select
-                value={barMass}
-                onChange={(e) => setBarMass(Number(e.target.value))}
-              >
-                <option value={20}>20 kg (Men's Olympic)</option>
-                <option value={15}>15 kg (Women's Olympic)</option>
-                <option value={10}>10 kg (EZ / Technique Bar)</option>
-                <option value={25}>25 kg (Trap / Safety Bar)</option>
+              <label>Barbell (kg)</label>
+              <select value={barMass} onChange={(e) => setBarMass(Number(e.target.value))}>
+                <option value={20}>20 kg</option>
+                <option value={15}>15 kg</option>
+                <option value={10}>10 kg</option>
+                <option value={25}>25 kg</option>
               </select>
             </div>
           </div>
 
-          {/* Visual IPF Barbell End-Cap */}
-          <div className="col" style={{ gap: 6 }}>
-            <div className="row-between">
-              <span className="section-label">Per-Side Loading (IPF Colors)</span>
-              <span className="card-meta tabular">
-                Loaded: <strong>{plateSolution.achievedWeightKg} kg</strong> ({plateSolution.perSideWeightKg} kg/side)
+          <div className="section-block">
+            <div className="section-header">
+              <span className="section-label">Per Side</span>
+              <span className="row-sub tabular">
+                {plateSolution.achievedWeightKg} kg ({plateSolution.perSideWeightKg} kg/side)
               </span>
             </div>
 
@@ -113,10 +111,10 @@ export function PlateCalculatorModal({
                     style={{
                       position: 'relative',
                       zIndex: 1,
-                      fontSize: 11,
-                      color: 'var(--text-muted)',
-                      paddingLeft: 12,
-                      background: '#0d0d10',
+                      fontSize: 12,
+                      color: 'var(--text-secondary)',
+                      paddingLeft: 10,
+                      background: 'var(--bg-canvas)',
                     }}
                   >
                     Empty Bar
@@ -128,9 +126,10 @@ export function PlateCalculatorModal({
                         key={`${slot.weightKg}-${idx}`}
                         className="barbell-plate tabular"
                         style={{
-                          height: `${Math.round(slot.heightPct * 1.05)}px`,
+                          height: `${Math.round(slot.heightPct * 1.02)}px`,
                           background: slot.color,
-                          color: slot.weightKg === 5 || slot.weightKg === 15 ? '#0A0A0C' : '#FFFFFF',
+                          color:
+                            slot.weightKg === 5 || slot.weightKg === 15 ? '#000000' : '#FFFFFF',
                         }}
                       >
                         {slot.weightKg}
@@ -141,79 +140,42 @@ export function PlateCalculatorModal({
               </div>
             </div>
 
-            <div className="chip-row">
-              {plateSolution.platesPerSide.map((p) => (
-                <span key={p.weightKg} className="chip tabular">
-                  <span
-                    style={{
-                      width: 8,
-                      height: 8,
-                      borderRadius: '50%',
-                      background: p.color,
-                    }}
-                  />
-                  {p.countPerSide} × {p.weightKg}kg / side
-                </span>
-              ))}
-              {plateSolution.remainderPerSideKg > 0 && (
-                <span className="chip danger tabular">
-                  Unloaded remainder: {plateSolution.remainderPerSideKg}kg/side
-                </span>
-              )}
-            </div>
+            {plateSolution.platesPerSide.length > 0 && (
+              <div className="row-sub tabular">
+                {plateSolution.platesPerSide
+                  .map((p) => `${p.countPerSide} × ${p.weightKg}kg`)
+                  .join('  +  ')}
+              </div>
+            )}
           </div>
 
-          <div className="divider" />
-
-          {/* Warm-Up Ramp Generator */}
-          <div className="col">
-            <div className="row-between">
-              <div className="row">
-                <Flame size={15} style={{ color: 'var(--accent-pr)' }} />
-                <span className="section-label">Auto Warm-Up Ramp (40% · 60% · 80%)</span>
-              </div>
+          <div className="section-block">
+            <div className="section-header">
+              <span className="section-label">Warm-Up Sets</span>
               {onInsertWarmups && (
                 <button
                   type="button"
-                  className="btn btn-amber btn-sm"
+                  className="btn-text"
+                  style={{ minHeight: 28, fontSize: 13 }}
                   onClick={() => {
                     onInsertWarmups(warmups);
                     onClose();
                   }}
                 >
-                  <Plus size={14} /> Add to Exercise
+                  <Plus size={14} style={{ display: 'inline', verticalAlign: '-2px' }} /> Insert
                 </button>
               )}
             </div>
 
-            <div className="col" style={{ gap: 6 }}>
-              {warmups.map((w, idx) => {
-                const subPlates = solveGreedyBarbellPlates(w.weightKg, barMass, plateInventoryKg);
-                return (
-                  <div
-                    key={`${w.weightKg}-${idx}`}
-                    className="card card-compact row-between"
-                    style={{ background: 'var(--bg-well)' }}
-                  >
-                    <div className="row">
-                      <span className="chip pr tabular">W{idx + 1}</span>
-                      <div>
-                        <div className="tabular" style={{ fontWeight: 700, fontSize: 14 }}>
-                          {formatWeight(w.weightKg, unit)} {unit} × {w.reps} reps
-                        </div>
-                        <div className="card-meta tabular">
-                          {w.label} ·{' '}
-                          {subPlates.platesPerSide.length > 0
-                            ? subPlates.platesPerSide
-                                .map((p) => `${p.countPerSide}×${p.weightKg}`)
-                                .join(' + ') + '/side'
-                            : 'Empty bar'}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
+            <div className="list-group">
+              {warmups.map((w, idx) => (
+                <div key={`${w.weightKg}-${idx}`} className="list-row" style={{ minHeight: 46 }}>
+                  <span className="row-title tabular">
+                    {formatWeight(w.weightKg, unit)} {unit} × {w.reps}
+                  </span>
+                  <span className="row-sub tabular">{w.label}</span>
+                </div>
+              ))}
             </div>
           </div>
         </div>

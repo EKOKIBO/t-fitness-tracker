@@ -1,58 +1,49 @@
 :root {
-  /* OLED-First Dark Color Tokens */
-  --bg-canvas: #0a0a0c;
-  --bg-card: #141417;
-  --bg-card-elevated: #18181d;
-  --bg-well: #1e1e24;
-  --bg-well-hover: #26262f;
-  --bg-glass: rgba(16, 16, 20, 0.84);
-  --border-hairline: #242429;
-  --border-strong: #32323b;
+  /* Strict Matte OLED Palette (Hevy / Apple Health / Linear) */
+  --bg-canvas: #000000;
+  --bg-surface: #141417;
+  --bg-surface-active: #1c1c21;
+  --bg-well: #1c1c20;
+  --bg-well-focus: #24242a;
+  --border-hairline: rgba(255, 255, 255, 0.08);
+  --border-subtle: rgba(255, 255, 255, 0.14);
 
-  /* Brand & Semantic Accents */
-  --accent-primary: #007aff;
-  --accent-primary-hover: #1e8aff;
-  --accent-primary-soft: rgba(0, 122, 255, 0.14);
-  --accent-pr: #ffb800;
-  --accent-pr-soft: rgba(255, 184, 0, 0.15);
-  --accent-positive: #10b981;
-  --accent-positive-soft: rgba(16, 185, 129, 0.15);
-  --accent-danger: #ef4444;
-  --accent-danger-soft: rgba(239, 68, 68, 0.15);
-  --accent-warning: #f59e0b;
-  --accent-warning-soft: rgba(245, 158, 11, 0.15);
+  /* Single Primary Accent + Minimal Semantic Tokens */
+  --accent: #007aff;
+  --accent-pressed: #0066d6;
+  --accent-tint: rgba(0, 122, 255, 0.14);
+  --success: #30d158;
+  --success-tint: rgba(48, 209, 88, 0.12);
+  --danger: #ff453a;
+  --danger-tint: rgba(255, 69, 58, 0.12);
 
   /* Text Hierarchy */
   --text-primary: #f5f5f7;
-  --text-secondary: #a1a1aa;
-  --text-muted: #71717a;
-  --text-dim: #52525b;
+  --text-secondary: #8e8e93;
+  --text-tertiary: #636366;
 
-  /* Superset Rail Colors (high-contrast non-violet) */
-  --superset-a: #007aff;
-  --superset-b: #10b981;
-  --superset-c: #ffb800;
-  --superset-d: #06b6d4;
+  /* Superset vertical rail tints (subtle, distinct, non-neon) */
+  --rail-a: #007aff;
+  --rail-b: #30d158;
+  --rail-c: #ff9f0a;
+  --rail-d: #64d2ff;
 
   /* Typography */
-  --font-sans: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'Inter',
+  --font-sans: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display', 'Inter',
     system-ui, sans-serif;
 
-  /* Radii & Spacing */
-  --radius-xs: 8px;
-  --radius-sm: 11px;
-  --radius-md: 15px;
-  --radius-lg: 20px;
+  /* Radii */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
   --radius-pill: 9999px;
 
-  /* Safe Areas (iPhone 16 Dynamic Island & Home Indicator) */
+  /* iPhone Safe Areas & Touch Ergonomics */
   --sat: env(safe-area-inset-top, 0px);
   --sab: env(safe-area-inset-bottom, 0px);
-  --nav-height: 66px;
-  --topbar-height: 56px;
+  --tap-min: 44px;
+  --nav-height: 58px;
 
   /* Motion */
-  --ease-spring: cubic-bezier(0.22, 1, 0.36, 1);
-  --shadow-sheet: 0 -12px 44px rgba(0, 0, 0, 0.65);
-  --shadow-float: 0 10px 30px rgba(0, 0, 0, 0.55);
+  --ease-ios: cubic-bezier(0.25, 0.9, 0.3, 1);
 }

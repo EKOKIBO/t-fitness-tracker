@@ -1,18 +1,12 @@
 import { useMemo, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import {
-  AlertTriangle,
-  Award,
-  Calendar,
   ChevronRight,
   Download,
   Image as ImageIcon,
   Play,
   Plus,
   RotateCcw,
-  ShieldCheck,
-  Upload,
-  Users,
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { db } from '../db/database';
@@ -108,291 +102,203 @@ export function HomeTab() {
       ? activeProgram.days[activeEnrollment.currentDayIndex % activeProgram.days.length]
       : null;
 
-  // Compute roster stats across all clients
   const rosterRows = useMemo(() => {
-    const now = Date.now();
-    const weekCut = now - 7 * 86_400_000;
+    const weekCut = Date.now() - 7 * 86_400_000;
     return clients.map((c) => {
       const wks = allCompletedWorkouts
         .filter((w) => w.clientId === c.id)
         .sort((a, b) => (b.finishedAt ?? b.startedAt) - (a.finishedAt ?? a.startedAt));
-      const last = wks[0];
-      const thisWeek = wks.filter((w) => (w.finishedAt ?? w.startedAt) >= weekCut).length;
-      return { client: c, lastWorkout: last, thisWeek, totalSessions: wks.length };
+      return {
+        client: c,
+        lastWorkout: wks[0],
+        thisWeek: wks.filter((w) => (w.finishedAt ?? w.startedAt) >= weekCut).length,
+      };
     });
   }, [clients, allCompletedWorkouts]);
 
   const workoutsSinceBackup = settings.workoutsSinceLastBackup || 0;
-  const todayCount = useMemo(() => {
-    const startOfDay = new Date();
-    startOfDay.setHours(0, 0, 0, 0);
-    return allCompletedWorkouts.filter(
-      (w) => (w.finishedAt ?? w.startedAt) >= startOfDay.getTime()
-    ).length;
-  }, [allCompletedWorkouts]);
 
   if (!activeClient) return null;
 
   return (
-    <div className="col" style={{ gap: 16 }}>
-      {/* Header + Client vs Coach Roster switcher */}
-      <div className="page-header">
-        <div>
-          <h1 className="page-title">
-            {viewMode === 'client' ? activeClient.name : `Coach Roster (${clients.length})`}
-          </h1>
-          <p className="page-subtitle">
-            {viewMode === 'client'
-              ? activeClient.notes ||
-                `${activeClient.sex === 'male' ? 'Male' : 'Female'} · ${activeClient.age}y · ${activeClient.bodyweightKg}kg`
-              : `${todayCount} client session(s) logged today across your roster`}
-          </p>
-        </div>
-
-        <div className="split-pill" style={{ width: 210 }}>
+    <div className="screen-section">
+      {/* Compact Header & Segmented Switcher */}
+      <div className="screen-head">
+        <h1 className="screen-title">
+          {viewMode === 'client' ? 'Home' : `Roster (${clients.length})`}
+        </h1>
+        <div className="segmented" style={{ width: 170 }}>
           <button
             type="button"
             className={viewMode === 'client' ? 'active' : ''}
             onClick={() => setViewMode('client')}
           >
-            Client View
+            Client
           </button>
           <button
             type="button"
             className={viewMode === 'roster' ? 'active' : ''}
             onClick={() => setViewMode('roster')}
           >
-            All Clients
-          </button>
-        </div>
-      </div>
-
-      {/* END-OF-DAY SYNC BACKUP CARD (Requested daily export / import safety net) */}
-      <div
-        className="card card-compact row-between"
-        style={{
-          borderColor:
-            workoutsSinceBackup > 0 ? 'rgba(255, 184, 0, 0.42)' : 'var(--border-hairline)',
-          background:
-            workoutsSinceBackup > 0
-              ? 'linear-gradient(135deg, rgba(255, 184, 0, 0.09) 0%, #141417 65%)'
-              : undefined,
-          flexWrap: 'wrap',
-        }}
-      >
-        <div className="row" style={{ gap: 10, flex: 1, minWidth: 220 }}>
-          <div
-            className={`icon-btn ${workoutsSinceBackup > 0 ? 'amber' : ''}`}
-            style={{ width: 40, height: 40, flexShrink: 0 }}
-          >
-            <ShieldCheck size={18} />
-          </div>
-          <div>
-            <div style={{ fontWeight: 700, fontSize: 13.5 }}>
-              {workoutsSinceBackup > 0
-                ? `End-of-Day Sync Backup · ${workoutsSinceBackup} new session${workoutsSinceBackup > 1 ? 's' : ''}`
-                : 'Local-First Vault & Daily Sync Backup'}
-            </div>
-            <div className="card-meta tabular">
-              {settings.lastBackupExportAt > 0
-                ? `Last file export: ${new Date(settings.lastBackupExportAt).toLocaleString('en-GB', {
-                    day: '2-digit',
-                    month: 'short',
-                    hour: '2-digit',
-                    minute: '2-digit',
-                  })}`
-                : 'Export after your last workout of the day for instant recovery if storage is cleared.'}
-            </div>
-          </div>
-        </div>
-
-        <div className="row" style={{ gap: 6 }}>
-          <button
-            id="home-eod-export-btn"
-            type="button"
-            className={`btn btn-sm ${workoutsSinceBackup > 0 ? 'btn-amber' : 'btn-secondary'}`}
-            onClick={() => void triggerEndOfDayBackupExport(true)}
-          >
-            <Download size={14} /> Export Sync File
-          </button>
-          <button
-            type="button"
-            className="btn btn-secondary btn-sm"
-            onClick={() => setSettingsOpen(true)}
-            title="Import a saved .tfit.json sync file or configure €0 Cloudflare sync"
-          >
-            <Upload size={14} /> Import
+            Roster
           </button>
         </div>
       </div>
 
       {viewMode === 'roster' ? (
-        /* === COACH ROSTER PULSE (ALL ~30 CLIENTS) === */
-        <div className="col" style={{ gap: 10 }}>
-          {rosterRows.map(({ client: c, lastWorkout, thisWeek, totalSessions }) => (
-            <div key={c.id} className="card card-compact row-between" style={{ flexWrap: 'wrap' }}>
-              <div
-                className="row"
-                style={{ flex: 1, minWidth: 200, cursor: 'pointer' }}
-                onClick={() => {
-                  void selectClient(c.id);
-                  setViewMode('client');
-                }}
-              >
-                <span className="client-avatar lg" style={{ background: c.avatarColor }}>
-                  {c.avatarInitials}
-                  {c.injuries.length > 0 && <span className="injury-dot" />}
-                </span>
-                <div>
-                  <div className="row" style={{ gap: 6 }}>
-                    <strong style={{ fontSize: 14.5 }}>{c.name}</strong>
-                    {c.isPersonal && <span className="chip active">Me</span>}
-                    {c.injuries.length > 0 && (
-                      <span className="chip danger" style={{ padding: '2px 7px', fontSize: 11 }}>
-                        <AlertTriangle size={11} /> {c.injuries.length} flag
-                      </span>
-                    )}
-                  </div>
-                  <div className="card-meta tabular">
-                    {thisWeek}× this week · {totalSessions} total ·{' '}
-                    {lastWorkout
-                      ? `Last: ${formatRelativeDay(lastWorkout.finishedAt ?? lastWorkout.startedAt)}`
-                      : 'No sessions yet'}
-                  </div>
-                </div>
-              </div>
-
-              <div className="row" style={{ gap: 6 }}>
-                <button
-                  type="button"
-                  className="btn btn-secondary btn-sm"
-                  onClick={() => setPngModalClientId(c.id)}
-                  title="Export client progress PNG"
-                >
-                  <ImageIcon size={14} /> PNG
-                </button>
-                <button
-                  type="button"
-                  className="btn btn-primary btn-sm"
+        <div className="section-block">
+          <div className="list-group">
+            {rosterRows.map(({ client: c, lastWorkout, thisWeek }) => (
+              <div key={c.id} className="list-row">
+                <div
+                  className="row"
+                  style={{ flex: 1, minWidth: 0, cursor: 'pointer' }}
                   onClick={() => {
                     void selectClient(c.id);
-                    void startEmptyWorkout(c.id);
+                    setViewMode('client');
                   }}
                 >
-                  <Play size={13} /> Log
-                </button>
+                  <span className="monogram lg">{c.avatarInitials}</span>
+                  <div className="list-row-body">
+                    <div className="row" style={{ gap: 6 }}>
+                      <span className="row-title">{c.name}</span>
+                      {c.injuries.length > 0 && <span className="status-dot danger" />}
+                    </div>
+                    <span className="row-sub tabular">
+                      {thisWeek}/wk ·{' '}
+                      {lastWorkout
+                        ? formatRelativeDay(lastWorkout.finishedAt ?? lastWorkout.startedAt)
+                        : 'No logs'}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="row" style={{ gap: 4 }}>
+                  <button
+                    type="button"
+                    className="nav-icon-btn"
+                    onClick={() => setPngModalClientId(c.id)}
+                    aria-label={`Progress PNG for ${c.name}`}
+                    title="Export Progress PNG"
+                  >
+                    <ImageIcon size={18} />
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-tinted btn-sm"
+                    onClick={() => {
+                      void selectClient(c.id);
+                      void startEmptyWorkout(c.id);
+                    }}
+                  >
+                    Log
+                  </button>
+                </div>
               </div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
       ) : (
-        /* === SINGLE ACTIVE CLIENT DASHBOARD === */
         <>
-          {/* Active Injuries Strip if client has any */}
-          {activeClient.injuries.length > 0 && (
-            <div className="injury-banner" style={{ marginBottom: 0 }}>
-              <AlertTriangle size={15} style={{ flexShrink: 0 }} />
-              <span>
-                <strong>Active Contraindications:</strong>{' '}
-                {activeClient.injuries
-                  .map((i) => `${i.label} (${i.severity})`)
-                  .join(' · ')}
-              </span>
-            </div>
-          )}
-
-          {/* KPI Strip */}
-          <div className="kpi-grid cols-4">
-            <div className="kpi-tile">
-              <span className="section-label">Strength Score</span>
-              <span className="kpi-value tabular" style={{ color: 'var(--accent-pr)' }}>
-                {strengthSummary?.strengthScore ?? 0}
-              </span>
-              <span className="kpi-sub">{strengthSummary?.tier ?? 'Beginner'} (DOTS)</span>
-            </div>
-            <div className="kpi-tile">
-              <span className="section-label">Balance Index</span>
-              <span className="kpi-value tabular" style={{ color: 'var(--accent-positive)' }}>
-                {strengthSummary?.balanceIndex ?? 0}%
-              </span>
-              <span className="kpi-sub">5-pattern symmetry</span>
-            </div>
-            <div className="kpi-tile">
-              <span className="section-label">7-Day Sessions</span>
-              <span className="kpi-value tabular">{sevenDayWorkouts.length}</span>
-              <span className="kpi-sub">{clientWorkouts.length} total logged</span>
-            </div>
-            <div className="kpi-tile">
-              <span className="section-label">7-Day Effective</span>
-              <span className="kpi-value tabular" style={{ color: 'var(--accent-primary)' }}>
-                {weeklyEffSets}
-              </span>
-              <span className="kpi-sub">RPE-weighted muscle sets</span>
-            </div>
-          </div>
-
-          {/* Quick Actions Bar */}
-          <div className="row" style={{ flexWrap: 'wrap', gap: 8 }}>
+          {/* Primary Action + Secondary Utility Row */}
+          <div className="col" style={{ gap: 10 }}>
             <button
               id="home-start-empty-btn"
               type="button"
-              className="btn btn-primary"
-              style={{ flex: 1, minWidth: 150 }}
+              className="btn btn-primary btn-full"
               onClick={() => void startEmptyWorkout(activeClient.id)}
             >
-              <Plus size={16} /> Start Workout
+              <Plus size={18} /> Start Workout
             </button>
-            <button
-              id="home-repeat-last-btn"
-              type="button"
-              className="btn btn-secondary"
-              style={{ flex: 1, minWidth: 150 }}
-              onClick={() => void repeatLastWorkout(activeClient.id)}
-            >
-              <RotateCcw size={15} /> Repeat Last Session
-            </button>
-            <button
-              id="home-export-png-btn"
-              type="button"
-              className="btn btn-secondary"
-              style={{ flex: 1, minWidth: 150 }}
-              onClick={() => setPngModalClientId(activeClient.id)}
-            >
-              <ImageIcon size={15} /> Progress PNG Card
-            </button>
+            <div className="field-row">
+              <button
+                id="home-repeat-last-btn"
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => void repeatLastWorkout(activeClient.id)}
+              >
+                <RotateCcw size={15} /> Repeat Last
+              </button>
+              <button
+                id="home-export-png-btn"
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => setPngModalClientId(activeClient.id)}
+              >
+                <ImageIcon size={15} /> Progress PNG
+              </button>
+            </div>
           </div>
 
-          {/* Next Scheduled Program Day */}
-          {activeProgram && activeEnrollment && nextProgramDay && (
-            <div className="card">
-              <div className="card-header">
-                <div>
-                  <span className="section-label">Up Next in Structured Program</span>
-                  <h2 className="card-title" style={{ marginTop: 3 }}>
-                    {activeProgram.name}
-                  </h2>
-                </div>
-                <span className="chip active tabular">
-                  Week {activeEnrollment.currentWeek} / {activeProgram.weeksCount}
+          {/* Unified 4-Cell Metrics Strip */}
+          <div className="section-block">
+            <div className="section-header">
+              <span className="section-label">Overview</span>
+              <button
+                type="button"
+                className="btn-text"
+                style={{ minHeight: 28, fontSize: 13 }}
+                onClick={() => setTab('analytics')}
+              >
+                Analytics
+              </button>
+            </div>
+            <div className="metrics-strip cols-4">
+              <div className="metric-cell">
+                <span className="metric-label">Strength</span>
+                <span className="metric-value tabular">{strengthSummary?.strengthScore ?? 0}</span>
+              </div>
+              <div className="metric-cell">
+                <span className="metric-label">Balance</span>
+                <span className="metric-value tabular">
+                  {strengthSummary?.balanceIndex ?? 0}
+                  <span className="metric-unit">%</span>
                 </span>
               </div>
+              <div className="metric-cell">
+                <span className="metric-label">7d Sessions</span>
+                <span className="metric-value tabular">{sevenDayWorkouts.length}</span>
+              </div>
+              <div className="metric-cell">
+                <span className="metric-label">7d Sets</span>
+                <span className="metric-value tabular">{weeklyEffSets}</span>
+              </div>
+            </div>
+          </div>
 
-              <div
-                className="card card-compact row-between"
-                style={{ background: 'var(--bg-well)', flexWrap: 'wrap' }}
-              >
-                <div>
-                  <strong style={{ fontSize: 14 }}>{nextProgramDay.name}</strong>
-                  <div className="card-meta">
-                    {nextProgramDay.exercises
-                      .slice(0, 3)
-                      .map((e) => exerciseMap.get(e.exerciseId)?.name ?? e.exerciseId)
-                      .join(' · ')}
+          {/* Active Injury Note (Quiet single hairline list if present) */}
+          {activeClient.injuries.length > 0 && (
+            <div className="section-block">
+              <div className="section-header">
+                <span className="section-label">Active Flags</span>
+              </div>
+              <div className="list-group">
+                {activeClient.injuries.map((inj) => (
+                  <div key={inj.id} className="list-row">
+                    <span className="status-dot danger" />
+                    <div className="list-row-body">
+                      <span className="row-title">{inj.label}</span>
+                      <span className="row-sub">{inj.severity}</span>
+                    </div>
                   </div>
-                </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Up Next in Structured Program */}
+          {activeProgram && activeEnrollment && nextProgramDay && (
+            <div className="section-block">
+              <div className="section-header">
+                <span className="section-label">Up Next</span>
+                <span className="row-sub tabular">
+                  Wk {activeEnrollment.currentWeek}/{activeProgram.weeksCount}
+                </span>
+              </div>
+              <div className="list-group">
                 <button
                   type="button"
-                  className="btn btn-primary btn-sm"
+                  className="list-row interactive"
                   onClick={() =>
                     void startFromProgramDay(
                       activeProgram,
@@ -402,90 +308,81 @@ export function HomeTab() {
                     )
                   }
                 >
-                  <Play size={14} /> Launch Day
+                  <div className="list-row-body">
+                    <span className="row-title">{nextProgramDay.name}</span>
+                    <span className="row-sub">{activeProgram.name}</span>
+                  </div>
+                  <Play size={16} style={{ color: 'var(--accent)', flexShrink: 0 }} />
                 </button>
               </div>
             </div>
           )}
 
-          {/* Recent Completed Sessions */}
-          <div className="card">
-            <div className="card-header">
-              <div className="row">
-                <Calendar size={16} style={{ color: 'var(--accent-primary)' }} />
-                <h2 className="card-title">Recent Sessions · {activeClient.name.split(' ')[0]}</h2>
-              </div>
-              <button
-                type="button"
-                className="btn btn-ghost btn-sm"
-                onClick={() => setTab('analytics')}
-              >
-                Strength Lab <ChevronRight size={14} />
-              </button>
+          {/* Recent Completed Workouts (Unified Inset List) */}
+          <div className="section-block">
+            <div className="section-header">
+              <span className="section-label">Recent Workouts</span>
             </div>
-
-            {clientWorkouts.length === 0 ? (
-              <div className="empty-state">
-                No completed workouts for {activeClient.name} yet. Tap <strong>Start Workout</strong> or pick a routine in <strong>Programs</strong>.
-              </div>
-            ) : (
-              <div className="col" style={{ gap: 8 }}>
-                {clientWorkouts.slice(0, 6).map((w) => {
+            <div className="list-group">
+              {clientWorkouts.length === 0 ? (
+                <div className="empty-state">No workouts logged yet.</div>
+              ) : (
+                clientWorkouts.slice(0, 6).map((w) => {
                   const isOpen = expandedWorkoutId === w.id;
                   const dateLabel = new Date(w.finishedAt ?? w.startedAt).toLocaleDateString(
                     'en-GB',
-                    { weekday: 'short', day: 'numeric', month: 'short' }
+                    { day: 'numeric', month: 'short' }
                   );
                   return (
                     <div
                       key={w.id}
-                      className="card card-compact"
-                      style={{ background: 'var(--bg-well)', cursor: 'pointer' }}
+                      className="list-row interactive"
+                      style={{ flexDirection: 'column', alignItems: 'stretch', gap: 8 }}
                       onClick={() => setExpandedWorkoutId(isOpen ? null : w.id)}
                     >
                       <div className="row-between">
-                        <div>
-                          <div className="row" style={{ gap: 6 }}>
-                            <strong style={{ fontSize: 14 }}>{w.name}</strong>
-                            {w.prCount > 0 && (
-                              <span className="chip pr tabular" style={{ padding: '2px 7px', fontSize: 11 }}>
-                                <Award size={11} /> {w.prCount} PR
-                              </span>
-                            )}
-                          </div>
-                          <div className="card-meta tabular">
+                        <div className="list-row-body">
+                          <span className="row-title">{w.name}</span>
+                          <span className="row-sub tabular">
                             {dateLabel} · {formatWeight(w.totalVolumeKg, activeClient.unit)}{' '}
-                            {activeClient.unit} · {w.exercises.length} exercises
-                            {w.readiness &&
-                              ` · Readiness ${w.readiness.sleep}/${w.readiness.energy}/${w.readiness.soreness}`}
-                          </div>
+                            {activeClient.unit}
+                            {w.prCount > 0 ? ` · ${w.prCount} PR` : ''}
+                          </span>
                         </div>
                         <ChevronRight
-                          size={15}
+                          size={16}
                           style={{
-                            color: 'var(--text-muted)',
+                            color: 'var(--text-tertiary)',
                             transform: isOpen ? 'rotate(90deg)' : 'none',
                             transition: 'transform 140ms ease',
+                            flexShrink: 0,
                           }}
                         />
                       </div>
 
                       {isOpen && (
-                        <div className="col" style={{ marginTop: 10, gap: 6, paddingTop: 8, borderTop: '1px solid var(--border-hairline)' }}>
+                        <div
+                          className="col"
+                          style={{
+                            gap: 6,
+                            paddingTop: 8,
+                            borderTop: '1px solid var(--border-hairline)',
+                          }}
+                        >
                           {w.exercises.map((we) => (
-                            <div key={we.id} style={{ fontSize: 12.5 }}>
-                              <div style={{ fontWeight: 600, color: 'var(--accent-primary)' }}>
+                            <div key={we.id} style={{ fontSize: 13 }}>
+                              <div style={{ fontWeight: 600 }}>
                                 {exerciseMap.get(we.exerciseId)?.name ?? we.exerciseId}
                               </div>
-                              <div className="card-meta tabular">
+                              <div className="row-sub tabular">
                                 {we.sets
                                   .filter((s) => s.completed)
                                   .map(
                                     (s) =>
-                                      `${s.type !== 'normal' ? `[${s.type}] ` : ''}${formatWeight(
+                                      `${s.type !== 'normal' ? `${s.type} ` : ''}${formatWeight(
                                         s.weightKg,
                                         activeClient.unit
-                                      )}×${s.reps}${s.rpe ? `@${s.rpe}` : ''}`
+                                      )}×${s.reps}${s.rpe ? ` @${s.rpe}` : ''}`
                                   )
                                   .join('  ·  ')}
                               </div>
@@ -495,22 +392,54 @@ export function HomeTab() {
                       )}
                     </div>
                   );
-                })}
-              </div>
-            )}
+                })
+              )}
+            </div>
+          </div>
+
+          {/* Daily Sync File Backup (Clean single inset list, zero fluff) */}
+          <div className="section-block">
+            <div className="section-header">
+              <span className="section-label">Backup</span>
+              {workoutsSinceBackup > 0 && (
+                <span className="row-sub tabular" style={{ color: 'var(--accent)' }}>
+                  {workoutsSinceBackup} unsaved
+                </span>
+              )}
+            </div>
+            <div className="list-group">
+              <button
+                id="home-eod-export-btn"
+                type="button"
+                className="list-row interactive"
+                onClick={() => void triggerEndOfDayBackupExport(true)}
+              >
+                <div className="list-row-body">
+                  <span className="row-title">Export Daily Sync File</span>
+                  <span className="row-sub tabular">
+                    {settings.lastBackupExportAt > 0
+                      ? `Last exported ${new Date(settings.lastBackupExportAt).toLocaleDateString(
+                          'en-GB',
+                          { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }
+                        )}`
+                      : 'Save .tfit.json snapshot to Files'}
+                  </span>
+                </div>
+                <Download size={17} style={{ color: 'var(--accent)', flexShrink: 0 }} />
+              </button>
+              <button
+                type="button"
+                className="list-row interactive"
+                onClick={() => setSettingsOpen(true)}
+              >
+                <div className="list-row-body">
+                  <span className="row-title">Import Sync File or Cloud Sync</span>
+                </div>
+                <ChevronRight size={16} style={{ color: 'var(--text-tertiary)' }} />
+              </button>
+            </div>
           </div>
         </>
-      )}
-
-      {/* Quick Coach Roster Footer Switch */}
-      {viewMode === 'client' && clients.length > 1 && (
-        <button
-          type="button"
-          className="btn btn-secondary btn-full"
-          onClick={() => setViewMode('roster')}
-        >
-          <Users size={15} /> View All {clients.length} Clients Pulse
-        </button>
       )}
 
       {pngModalClientId && (
