@@ -1,0 +1,58 @@
+:root {
+  /* OLED-First Dark Color Tokens */
+  --bg-canvas: #0a0a0c;
+  --bg-card: #141417;
+  --bg-card-elevated: #18181d;
+  --bg-well: #1e1e24;
+  --bg-well-hover: #26262f;
+  --bg-glass: rgba(16, 16, 20, 0.84);
+  --border-hairline: #242429;
+  --border-strong: #32323b;
+
+  /* Brand & Semantic Accents */
+  --accent-primary: #007aff;
+  --accent-primary-hover: #1e8aff;
+  --accent-primary-soft: rgba(0, 122, 255, 0.14);
+  --accent-pr: #ffb800;
+  --accent-pr-soft: rgba(255, 184, 0, 0.15);
+  --accent-positive: #10b981;
+  --accent-positive-soft: rgba(16, 185, 129, 0.15);
+  --accent-danger: #ef4444;
+  --accent-danger-soft: rgba(239, 68, 68, 0.15);
+  --accent-warning: #f59e0b;
+  --accent-warning-soft: rgba(245, 158, 11, 0.15);
+
+  /* Text Hierarchy */
+  --text-primary: #f5f5f7;
+  --text-secondary: #a1a1aa;
+  --text-muted: #71717a;
+  --text-dim: #52525b;
+
+  /* Superset Rail Colors (high-contrast non-violet) */
+  --superset-a: #007aff;
+  --superset-b: #10b981;
+  --superset-c: #ffb800;
+  --superset-d: #06b6d4;
+
+  /* Typography */
+  --font-sans: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'Inter',
+    system-ui, sans-serif;
+
+  /* Radii & Spacing */
+  --radius-xs: 8px;
+  --radius-sm: 11px;
+  --radius-md: 15px;
+  --radius-lg: 20px;
+  --radius-pill: 9999px;
+
+  /* Safe Areas (iPhone 16 Dynamic Island & Home Indicator) */
+  --sat: env(safe-area-inset-top, 0px);
+  --sab: env(safe-area-inset-bottom, 0px);
+  --nav-height: 66px;
+  --topbar-height: 56px;
+
+  /* Motion */
+  --ease-spring: cubic-bezier(0.22, 1, 0.36, 1);
+  --shadow-sheet: 0 -12px 44px rgba(0, 0, 0, 0.65);
+  --shadow-float: 0 10px 30px rgba(0, 0, 0, 0.55);
+}
