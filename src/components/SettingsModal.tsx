@@ -69,7 +69,7 @@ export function SettingsModal() {
       if (!h.reachable) {
         setHealthResult('Endpoint unreachable (local-only mode still works 100%).');
       } else if (!h.dbBound) {
-        setHealthResult('Connected to Cloudflare Pages, but D1 binding (DB) is not attached yet.');
+        setHealthResult('Connected to Cloudflare Worker, but D1 binding (DB) is not attached yet.');
       } else {
         setHealthResult(
           `Connected ✓ · D1 Ready (${h.recordCount} synced records · Auth ${
@@ -265,7 +265,7 @@ export function SettingsModal() {
             </div>
 
             <div className="field">
-              <label>Sync API Endpoint (default <code>/api/sync</code> on Cloudflare Pages)</label>
+              <label>Sync API Endpoint (default <code>/api/sync</code> on Cloudflare)</label>
               <input
                 type="text"
                 value={syncUrl}

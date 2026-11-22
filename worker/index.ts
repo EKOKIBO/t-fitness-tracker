@@ -1,6 +1,7 @@
 /// <reference types="@cloudflare/workers-types" />
 
 interface Env {
+  ASSETS: Fetcher;
   DB?: D1Database;
   COACH_SYNC_KEY?: string;
 }
@@ -30,6 +31,23 @@ const ALLOWED_COLLECTIONS = new Set([
   'measurements',
 ]);
 
+const CORS_HEADERS: Record<string, string> = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, X-Coach-Key',
+};
+
+function jsonResponse(data: unknown, status = 200): Response {
+  return new Response(JSON.stringify(data), {
+    status,
+    headers: {
+      'Content-Type': 'application/json',
+      'Cache-Control': 'no-store',
+      ...CORS_HEADERS,
+    },
+  });
+}
+
 async function sha256Hex(value: string): Promise<string> {
   const bytes = new TextEncoder().encode(value);
   const hash = await crypto.subtle.digest('SHA-256', bytes);
@@ -47,26 +65,55 @@ function constantTimeEqual(a: string, b: string): boolean {
   return diff === 0;
 }
 
-const CORS_HEADERS = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, X-Coach-Key',
-};
+async function handleHealth(env: Env): Promise<Response> {
+  const dbBound = Boolean(env.DB);
+  let dbReady = false;
+  let recordCount = 0;
 
-export const onRequestOptions: PagesFunction = async () =>
-  new Response(null, { status: 204, headers: CORS_HEADERS });
+  if (env.DB) {
+    try {
+      await env.DB.prepare(
+        `CREATE TABLE IF NOT EXISTS sync_records (
+          collection TEXT NOT NULL,
+          id TEXT NOT NULL,
+          payload TEXT NOT NULL,
+          updated_at INTEGER NOT NULL,
+          deleted_at INTEGER,
+          PRIMARY KEY (collection, id)
+        )`
+      ).run();
+      const row = await env.DB.prepare('SELECT COUNT(*) as cnt FROM sync_records').first<{
+        cnt: number;
+      }>();
+      dbReady = true;
+      recordCount = row?.cnt ?? 0;
+    } catch {
+      dbReady = false;
+    }
+  }
 
-export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
+  return jsonResponse({
+    ok: true,
+    app: 'T!',
+    dbBound,
+    dbReady,
+    authProtected: Boolean(env.COACH_SYNC_KEY),
+    recordCount,
+    serverTime: Date.now(),
+  });
+}
+
+async function handleSync(request: Request, env: Env): Promise<Response> {
   if (!env.DB) {
-    return new Response(
-      JSON.stringify({
-        error: 'Cloudflare D1 database (DB) is not bound yet. Bind DB in Cloudflare Pages Settings.',
-      }),
-      { status: 503, headers: { 'Content-Type': 'application/json', ...CORS_HEADERS } }
+    return jsonResponse(
+      {
+        error:
+          'Cloudflare D1 database (DB) is not bound yet. Create t-fitness-db and bind it as DB in wrangler.toml or Cloudflare Dashboard.',
+      },
+      503
     );
   }
 
-  // Verify Coach Sync Key if configured in Cloudflare environment variables
   if (env.COACH_SYNC_KEY && env.COACH_SYNC_KEY.trim().length > 0) {
     const provided = request.headers.get('X-Coach-Key') ?? '';
     const [expectedHash, providedHash] = await Promise.all([
@@ -74,10 +121,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       sha256Hex(provided.trim()),
     ]);
     if (!constantTimeEqual(expectedHash, providedHash)) {
-      return new Response(JSON.stringify({ error: 'Invalid Coach Sync Key.' }), {
-        status: 401,
-        headers: { 'Content-Type': 'application/json', ...CORS_HEADERS },
-      });
+      return jsonResponse({ error: 'Invalid Coach Sync Key.' }, 401);
     }
   }
 
@@ -85,16 +129,14 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   try {
     body = (await request.json()) as SyncRequestBody;
   } catch {
-    return new Response(JSON.stringify({ error: 'Invalid JSON payload.' }), {
-      status: 400,
-      headers: { 'Content-Type': 'application/json', ...CORS_HEADERS },
-    });
+    return jsonResponse({ error: 'Invalid JSON payload.' }, 400);
   }
 
-  const since = typeof body.since === 'number' && Number.isFinite(body.since) ? body.since : 0;
+  const since =
+    typeof body.since === 'number' && Number.isFinite(body.since) ? body.since : 0;
   const changes = Array.isArray(body.changes) ? body.changes : [];
 
-  // Ensure table exists automatically on first sync even if user skipped manual SQL migration
+  // Auto-initialize D1 table on first sync
   await env.DB.prepare(
     `CREATE TABLE IF NOT EXISTS sync_records (
       collection TEXT NOT NULL,
@@ -106,7 +148,6 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     )`
   ).run();
 
-  // Upsert incoming changes using Last-Write-Wins on updated_at
   const validChanges = changes.filter(
     (item) =>
       item &&
@@ -117,7 +158,6 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
 
   let appliedCount = 0;
   if (validChanges.length > 0) {
-    // Batch in chunks of 50 statements for D1 limits
     const stmt = env.DB.prepare(
       `INSERT INTO sync_records (collection, id, payload, updated_at, deleted_at)
        VALUES (?1, ?2, ?3, ?4, ?5)
@@ -145,7 +185,6 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     }
   }
 
-  // Pull all server records updated strictly after `since`
   const rows = await env.DB.prepare(
     `SELECT collection, id, payload, updated_at, deleted_at
      FROM sync_records
@@ -169,19 +208,34 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     deletedAt: r.deleted_at,
   }));
 
-  return new Response(
-    JSON.stringify({
-      ok: true,
-      serverTime: Date.now(),
-      appliedCount,
-      changes: serverChanges,
-    }),
-    {
-      headers: {
-        'Content-Type': 'application/json',
-        'Cache-Control': 'no-store',
-        ...CORS_HEADERS,
-      },
+  return jsonResponse({
+    ok: true,
+    serverTime: Date.now(),
+    appliedCount,
+    changes: serverChanges,
+  });
+}
+
+export default {
+  async fetch(request: Request, env: Env): Promise<Response> {
+    const url = new URL(request.url);
+
+    if (request.method === 'OPTIONS' && url.pathname.startsWith('/api/')) {
+      return new Response(null, { status: 204, headers: CORS_HEADERS });
     }
-  );
-};
+
+    if (url.pathname === '/api/health' && request.method === 'GET') {
+      return handleHealth(env);
+    }
+
+    if (url.pathname === '/api/sync' && request.method === 'POST') {
+      return handleSync(request, env);
+    }
+
+    if (url.pathname.startsWith('/api/')) {
+      return jsonResponse({ error: 'Not found' }, 404);
+    }
+
+    return env.ASSETS.fetch(request);
+  },
+} satisfies ExportedHandler<Env>;

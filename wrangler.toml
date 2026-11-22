@@ -1,11 +1,17 @@
 name = "t-fitness-tracker"
-pages_build_output_dir = "dist"
+main = "worker/index.ts"
 compatibility_date = "2026-01-01"
+keep_vars = true
 
-# Bind your Cloudflare D1 database in the Cloudflare Pages Dashboard
-# (Settings -> Bindings -> Add -> D1 database -> Variable name: DB)
-# or uncomment and paste your database_id for local wrangler dev:
+[assets]
+directory = "./dist"
+binding = "ASSETS"
+not_found_handling = "single-page-application"
+run_worker_first = ["/api/*"]
+
+# After creating your free D1 database ("t-fitness-db") in Cloudflare Dashboard,
+# uncomment the 4 lines below and paste your database_id (from D1 -> t-fitness-db):
 # [[d1_databases]]
 # binding = "DB"
 # database_name = "t-fitness-db"
-# database_id = "YOUR_D1_DATABASE_ID"
+# database_id = "PASTE_YOUR_D1_DATABASE_ID_HERE"

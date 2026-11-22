@@ -25,17 +25,14 @@ npm test       # Run Vitest unit tests
 npm run build  # Type-check & emit dist/ with offline precached sw.js
 ```
 
-## €0 Deployment (Cloudflare Pages + Cloudflare D1)
+## €0 Deployment (Cloudflare Workers + Static Assets + D1)
 1. Push this repo to GitHub (`EKOKIBO/t-fitness-tracker`).
-2. In Cloudflare Dashboard → **Workers & Pages → Create → Pages → Connect to Git**, select `EKOKIBO/t-fitness-tracker`:
+2. In Cloudflare Dashboard → **Workers & Pages → Create → Import a repository**, select `EKOKIBO/t-fitness-tracker`:
    - Build command: `npm run build`
-   - Build output directory: `dist`
-3. Create a free **D1 SQLite database** named `t-fitness-db` under **Storage & Databases → D1 SQL Database**.
-4. In your Pages project → **Settings → Bindings → Add → D1 database**:
-   - Variable name: `DB`
-   - D1 database: `t-fitness-db`
-5. In **Settings → Environment variables**, add an encrypted secret:
+   - Deploy command: `npx wrangler deploy`
+3. Create a free **D1 SQLite database** named `t-fitness-db` under **Storage & Databases → D1 SQL Database** and copy its **Database ID**.
+4. Uncomment the `[[d1_databases]]` block in `wrangler.toml` with your `database_id` (you can edit it directly on GitHub) so every deploy keeps `DB` permanently bound.
+5. In your Worker's **Settings → Variables and Secrets**, add a **Secret**:
    - Variable name: `COACH_SYNC_KEY`
    - Value: any strong private passphrase (e.g. `my-gym-sync-2026!`)
-6. Trigger a redeploy in Cloudflare Pages.
-7. Open your `*.pages.dev` URL in Safari on the coach's iPhone 16 → **Share → Add to Home Screen** → open **T!** → **Settings → Cloudflare D1 Cloud Sync** → enter your `COACH_SYNC_KEY` → tap **Sync Now**.
+6. Open your `https://<name>.<subdomain>.workers.dev` URL in Safari on the coach's iPhone 16 → **Share → Add to Home Screen** → open **T!** → **Settings → Cloudflare D1 Cloud Sync** → enter your `COACH_SYNC_KEY` → tap **Sync Now**.
